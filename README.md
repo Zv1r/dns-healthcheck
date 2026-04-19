@@ -1,31 +1,48 @@
 # dns-healthcheck
 
-A Zonemaster-class DNS auditor for the modern internet, packaged as a single Python CLI.
+A comprehensive DNS auditor for the modern internet, packaged as a single Python CLI.
 
-`dns-healthcheck` runs **91 checks** against any domain you point it at — covering the full
-[Zonemaster](https://zonemaster.net/) test catalog (delegation, name servers, DNSSEC, SOA,
-syntax, connectivity, consistency) **plus** four areas Zonemaster doesn't:
+`dns-healthcheck` runs **91 checks** against any domain you point it at, covering the full
+RFC-defined DNS surface (delegation, name servers, DNSSEC, SOA, syntax, connectivity,
+consistency) **plus** four areas most auditors skip:
 
 - **Email security**: SPF, DKIM (selector probing), DMARC, MTA-STS, TLS-RPT, BIMI, DANE.
 - **Web/CDN posture**: CAA, HTTPS redirect, HSTS, HSTS preload eligibility, TLS cert chain.
 - **Multi-resolver propagation**: query Cloudflare, Google, Quad9, OpenDNS, ControlD in parallel and surface answer drift.
 - **CI-native output**: text, JSON, **SARIF 2.1.0**, JUnit XML, and Markdown — with a `--fail-on` exit code so domain regressions can fail your pipeline.
 
-MIT-licensed. No daemon, no database, no UI — just `pip install dns-healthcheck` and run.
+MIT-licensed. No daemon, no database, no UI — install in a virtual environment and run.
 
 ---
 
 ## Install
 
+`dns-healthcheck` is published on PyPI. Install it into a virtual environment:
+
 ```bash
+# 1. Create and activate a virtualenv
+python3 -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+
+# 2. Install the package
+pip install --upgrade pip
 pip install dns-healthcheck
-# or, isolated
+
+# 3. Verify
+dnshc --version
+```
+
+Prefer an isolated, never-activate workflow? Use `pipx`, which manages its own venv per tool:
+
+```bash
 pipx install dns-healthcheck
 ```
 
 Python 3.10+ required.
 
 ## Quick start
+
+All commands below assume your virtualenv is activated (`source .venv/bin/activate`).
 
 ```bash
 # Audit a domain (rich terminal output)
@@ -123,12 +140,10 @@ print(render_json(report))
 | `nameserver` | 14 | Recursion, EDNS0, AXFR refusal, version disclosure, case |
 | `syntax` | 8 | Charset, hyphen rules, IDN, SOA RNAME/MNAME, hostname validity |
 | `zone` | 11 | SOA timers, MX hygiene, SPF presence, wildcard MX |
-| **`email`** ★ | 8 | **SPF, DKIM, DMARC, MTA-STS, TLS-RPT, BIMI, DANE** |
-| **`web`** ★ | 6 | **CAA, HTTPS redirect, HSTS, preload, TLS cert** |
-| **`propagation`** ★ | 3 | **A/AAAA/MX/NS consistency across 5 public resolvers** |
+| `email` | 8 | SPF, DKIM, DMARC, MTA-STS, TLS-RPT, BIMI, DANE |
+| `web` | 6 | CAA, HTTPS redirect, HSTS, preload, TLS cert |
+| `propagation` | 3 | A/AAAA/MX/NS consistency across 5 public resolvers |
 | **Total** | **91** | |
-
-★ = beyond Zonemaster.
 
 `dnshc list-checks` for the full catalog. `dnshc explain <CHECK_ID>` for one check's spec.
 
@@ -137,29 +152,24 @@ print(render_json(report))
 `INFO < NOTICE < WARNING < ERROR < CRITICAL`. Each finding has one. The default profile
 fails the run on `ERROR+`; use `--fail-on warning` for stricter pipelines.
 
-## Comparison
-
-| Feature | dns-healthcheck | Zonemaster | intoDNS | MXToolbox | DNSViz |
-|---|---|---|---|---|---|
-| Open source | ✓ MIT | ✓ BSD-3 | — | — | ✓ |
-| Self-hostable / scriptable | ✓ | partial | — | — | ✓ |
-| Delegation + DNSSEC chain | ✓ | ✓ | basic | basic | ✓✓ |
-| Email auth (SPF/DKIM/DMARC) | ✓ | basic SPF | partial | ✓ | — |
-| MTA-STS / TLS-RPT / BIMI | ✓ | — | — | partial | — |
-| CAA / HSTS / TLS cert | ✓ | — | — | partial | — |
-| Multi-resolver propagation | ✓ | — | — | partial | — |
-| SARIF / JUnit output | ✓ | — | — | — | — |
-| GitHub Action | ✓ | — | — | — | — |
-
 ## Development
 
 ```bash
 git clone https://github.com/Zv1r/dns-healthcheck
 cd dns-healthcheck
-python -m venv .venv && source .venv/bin/activate
+
+# Always work inside a virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
 pip install -e '.[dev]'
+
+# Quality gates
 pytest
 ruff check . && ruff format --check .
+
+# Smoke run from the source tree
+dnshc check example.com
 ```
 
 ## License

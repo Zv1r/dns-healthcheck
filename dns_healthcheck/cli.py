@@ -17,7 +17,7 @@ from dns_healthcheck.result import Severity
 
 app = typer.Typer(
     name="dnshc",
-    help="dns-healthcheck — Zonemaster-class DNS auditor.",
+    help="dns-healthcheck — comprehensive DNS auditor.",
     no_args_is_help=True,
     add_completion=False,
 )

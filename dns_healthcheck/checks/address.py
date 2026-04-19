@@ -1,4 +1,4 @@
-"""Address-TP: nameserver address checks."""
+"""Address checks: nameserver IP reachability and reverse DNS."""
 
 from __future__ import annotations
 
@@ -13,7 +13,6 @@ from dns_healthcheck.registry import register
 from dns_healthcheck.result import Finding, Severity
 
 CATEGORY = "address"
-SPEC_BASE = "https://doc.zonemaster.net/latest/specifications/tests/Address-TP"
 
 
 @register(
@@ -21,7 +20,6 @@ SPEC_BASE = "https://doc.zonemaster.net/latest/specifications/tests/Address-TP"
     category=CATEGORY,
     name="Name server address must be globally reachable",
     description="Authoritative name server addresses must not be in private/reserved ranges (RFC 1918, RFC 6890).",
-    spec_url=f"{SPEC_BASE}/address01.html",
     default_severity=Severity.ERROR,
 )
 async def address01(ctx: CheckContext) -> list[Finding]:
@@ -46,7 +44,6 @@ async def address01(ctx: CheckContext) -> list[Finding]:
     category=CATEGORY,
     name="Reverse DNS entry exists for name server IP",
     description="Every authoritative name server IP should have a PTR record.",
-    spec_url=f"{SPEC_BASE}/address02.html",
     default_severity=Severity.WARNING,
 )
 async def address02(ctx: CheckContext) -> list[Finding]:
@@ -89,7 +86,6 @@ async def address02(ctx: CheckContext) -> list[Finding]:
     category=CATEGORY,
     name="Reverse DNS matches name server name",
     description="The PTR record should resolve back to the name server's hostname.",
-    spec_url=f"{SPEC_BASE}/address03.html",
     default_severity=Severity.NOTICE,
 )
 async def address03(ctx: CheckContext) -> list[Finding]:

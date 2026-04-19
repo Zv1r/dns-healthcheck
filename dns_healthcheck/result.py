@@ -10,7 +10,7 @@ from typing import Any
 
 
 class Severity(IntEnum):
-    """Severity levels, modelled on Zonemaster: INFO < NOTICE < WARNING < ERROR < CRITICAL."""
+    """Severity levels: INFO < NOTICE < WARNING < ERROR < CRITICAL."""
 
     INFO = 0
     NOTICE = 1

@@ -1,4 +1,4 @@
-"""DNSSEC-TP: chain-of-trust, key strength, signature freshness, NSEC/NSEC3."""
+"""DNSSEC checks: chain-of-trust, key strength, signature freshness, NSEC/NSEC3."""
 
 from __future__ import annotations
 
@@ -15,7 +15,6 @@ from dns_healthcheck.registry import register
 from dns_healthcheck.result import Finding, Severity
 
 CATEGORY = "dnssec"
-SPEC_BASE = "https://doc.zonemaster.net/latest/specifications/tests/DNSSEC-TP"
 
 ALG_NAMES = {
     1: "RSAMD5",
@@ -71,7 +70,6 @@ def _parse_dnskey_records(ctx: CheckContext) -> list[tuple[int, int, int, str]]:
     id="DNSSEC01",
     category=CATEGORY,
     name="Zone is DNSSEC-signed (DS at parent + DNSKEY at apex)",
-    spec_url=f"{SPEC_BASE}/dnssec01.html",
     default_severity=Severity.NOTICE,
 )
 async def dnssec01(ctx: CheckContext) -> list[Finding]:
@@ -100,7 +98,6 @@ async def dnssec01(ctx: CheckContext) -> list[Finding]:
     id="DNSSEC02",
     category=CATEGORY,
     name="DS digest type is not SHA-1",
-    spec_url=f"{SPEC_BASE}/dnssec02.html",
     default_severity=Severity.WARNING,
     requires_dnssec=True,
 )
@@ -123,7 +120,6 @@ async def dnssec02(ctx: CheckContext) -> list[Finding]:
     id="DNSSEC03",
     category=CATEGORY,
     name="DNSKEY algorithm is not weak",
-    spec_url=f"{SPEC_BASE}/dnssec03.html",
     default_severity=Severity.WARNING,
     requires_dnssec=True,
 )
@@ -146,7 +142,6 @@ async def dnssec03(ctx: CheckContext) -> list[Finding]:
     id="DNSSEC04",
     category=CATEGORY,
     name="DNSKEY RRset has at least one KSK (flags 257) and one ZSK (flags 256)",
-    spec_url=f"{SPEC_BASE}/dnssec04.html",
     default_severity=Severity.NOTICE,
     requires_dnssec=True,
 )
@@ -167,7 +162,6 @@ async def dnssec04(ctx: CheckContext) -> list[Finding]:
     category=CATEGORY,
     name="RSA DNSKEYs use a key size >= 2048 bits",
     description="RSA keys < 2048 bits are no longer considered safe.",
-    spec_url=f"{SPEC_BASE}/dnssec05.html",
     default_severity=Severity.WARNING,
     requires_dnssec=True,
 )
@@ -217,7 +211,6 @@ def _rsa_key_size(key: bytes) -> int | None:
     id="DNSSEC06",
     category=CATEGORY,
     name="DNSKEY RRset is signed",
-    spec_url=f"{SPEC_BASE}/dnssec06.html",
     default_severity=Severity.ERROR,
     requires_dnssec=True,
 )
@@ -242,7 +235,6 @@ async def dnssec06(ctx: CheckContext) -> list[Finding]:
     id="DNSSEC07",
     category=CATEGORY,
     name="SOA RRset is signed",
-    spec_url=f"{SPEC_BASE}/dnssec07.html",
     default_severity=Severity.ERROR,
     requires_dnssec=True,
 )
@@ -267,7 +259,6 @@ async def dnssec07(ctx: CheckContext) -> list[Finding]:
     id="DNSSEC08",
     category=CATEGORY,
     name="RRSIG inception is in the past and not too old",
-    spec_url=f"{SPEC_BASE}/dnssec08.html",
     default_severity=Severity.WARNING,
     requires_dnssec=True,
 )
@@ -300,7 +291,6 @@ async def dnssec08(ctx: CheckContext) -> list[Finding]:
     category=CATEGORY,
     name="RRSIG expiration is in the future and not too close",
     description="Warn if RRSIG expires in less than 7 days.",
-    spec_url=f"{SPEC_BASE}/dnssec09.html",
     default_severity=Severity.WARNING,
     requires_dnssec=True,
 )
@@ -342,7 +332,6 @@ async def dnssec09(ctx: CheckContext) -> list[Finding]:
     id="DNSSEC10",
     category=CATEGORY,
     name="Authenticated denial of existence (NSEC or NSEC3) works",
-    spec_url=f"{SPEC_BASE}/dnssec10.html",
     default_severity=Severity.WARNING,
     requires_dnssec=True,
 )
@@ -369,7 +358,6 @@ async def dnssec10(ctx: CheckContext) -> list[Finding]:
     id="DNSSEC11",
     category=CATEGORY,
     name="DNSKEY published for every algorithm referenced by DS",
-    spec_url=f"{SPEC_BASE}/dnssec11.html",
     default_severity=Severity.ERROR,
     requires_dnssec=True,
 )
@@ -393,7 +381,6 @@ async def dnssec11(ctx: CheckContext) -> list[Finding]:
     id="DNSSEC12",
     category=CATEGORY,
     name="Each DS record's key tag matches a published DNSKEY",
-    spec_url=f"{SPEC_BASE}/dnssec12.html",
     default_severity=Severity.ERROR,
     requires_dnssec=True,
 )
@@ -427,7 +414,6 @@ async def dnssec12(ctx: CheckContext) -> list[Finding]:
     id="DNSSEC13",
     category=CATEGORY,
     name="Every DNSKEY algorithm has at least one signing RRSIG",
-    spec_url=f"{SPEC_BASE}/dnssec13.html",
     default_severity=Severity.ERROR,
     requires_dnssec=True,
 )
@@ -460,7 +446,6 @@ async def dnssec13(ctx: CheckContext) -> list[Finding]:
     category=CATEGORY,
     name="NSEC3 iteration count is reasonable",
     description="RFC 9276 recommends iterations = 0; iterations > 50 are a denial-of-service risk.",
-    spec_url=f"{SPEC_BASE}/dnssec14.html",
     default_severity=Severity.WARNING,
     requires_dnssec=True,
 )
@@ -499,7 +484,6 @@ async def dnssec14(ctx: CheckContext) -> list[Finding]:
     id="DNSSEC15",
     category=CATEGORY,
     name="Zone publishes CDS or CDNSKEY for automated DS rollover (RFC 7344)",
-    spec_url=f"{SPEC_BASE}/dnssec15.html",
     default_severity=Severity.INFO,
     requires_dnssec=True,
 )
@@ -528,7 +512,6 @@ async def dnssec15(ctx: CheckContext) -> list[Finding]:
     id="DNSSEC16",
     category=CATEGORY,
     name="CDS digest type is not SHA-1",
-    spec_url=f"{SPEC_BASE}/dnssec16.html",
     default_severity=Severity.WARNING,
     requires_dnssec=True,
 )
@@ -559,7 +542,6 @@ async def dnssec16(ctx: CheckContext) -> list[Finding]:
     id="DNSSEC17",
     category=CATEGORY,
     name="DNSKEY TTL is consistent across the RRset",
-    spec_url=f"{SPEC_BASE}/dnssec17.html",
     default_severity=Severity.NOTICE,
     requires_dnssec=True,
 )
@@ -589,7 +571,6 @@ async def dnssec17(ctx: CheckContext) -> list[Finding]:
     id="DNSSEC18",
     category=CATEGORY,
     name="DNSKEY signature validates against published key",
-    spec_url=f"{SPEC_BASE}/dnssec18.html",
     default_severity=Severity.ERROR,
     requires_dnssec=True,
 )

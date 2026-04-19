@@ -1,4 +1,4 @@
-"""Syntax-TP: domain-name and field syntax checks (RFC 1035, 5891)."""
+"""Syntax checks for domain names and SOA fields (RFC 1035, 5891)."""
 
 from __future__ import annotations
 
@@ -10,7 +10,6 @@ from dns_healthcheck.registry import register
 from dns_healthcheck.result import Finding, Severity
 
 CATEGORY = "syntax"
-SPEC_BASE = "https://doc.zonemaster.net/latest/specifications/tests/Syntax-TP"
 
 
 @register(
@@ -18,7 +17,6 @@ SPEC_BASE = "https://doc.zonemaster.net/latest/specifications/tests/Syntax-TP"
     category=CATEGORY,
     name="Domain only contains allowed characters",
     description="Each label of the domain must use letters, digits, or hyphens (RFC 1035).",
-    spec_url=f"{SPEC_BASE}/syntax01.html",
     default_severity=Severity.ERROR,
 )
 async def syntax01(ctx: CheckContext) -> list[Finding]:
@@ -41,7 +39,6 @@ async def syntax01(ctx: CheckContext) -> list[Finding]:
     category=CATEGORY,
     name="No leading or trailing hyphen",
     description="DNS labels must not begin or end with a hyphen.",
-    spec_url=f"{SPEC_BASE}/syntax02.html",
     default_severity=Severity.ERROR,
 )
 async def syntax02(ctx: CheckContext) -> list[Finding]:
@@ -64,7 +61,6 @@ async def syntax02(ctx: CheckContext) -> list[Finding]:
     category=CATEGORY,
     name="No double-hyphen unless it's a valid IDN A-label",
     description="Labels with '--' in positions 3-4 must be a valid IDNA A-label (xn--...).",
-    spec_url=f"{SPEC_BASE}/syntax03.html",
     default_severity=Severity.WARNING,
 )
 async def syntax03(ctx: CheckContext) -> list[Finding]:
@@ -99,7 +95,6 @@ async def syntax03(ctx: CheckContext) -> list[Finding]:
     id="SYNTAX04",
     category=CATEGORY,
     name="SOA MNAME is a valid hostname",
-    spec_url=f"{SPEC_BASE}/syntax04.html",
     default_severity=Severity.WARNING,
 )
 async def syntax04(ctx: CheckContext) -> list[Finding]:
@@ -126,7 +121,6 @@ async def syntax04(ctx: CheckContext) -> list[Finding]:
         "The SOA RNAME field encodes an email address; "
         "the local part may not start with a digit-only label or unescaped '@'."
     ),
-    spec_url=f"{SPEC_BASE}/syntax05.html",
     default_severity=Severity.WARNING,
 )
 async def syntax05(ctx: CheckContext) -> list[Finding]:
@@ -158,7 +152,6 @@ async def syntax05(ctx: CheckContext) -> list[Finding]:
     id="SYNTAX06",
     category=CATEGORY,
     name="Each NS hostname is syntactically valid",
-    spec_url=f"{SPEC_BASE}/syntax06.html",
     default_severity=Severity.WARNING,
 )
 async def syntax06(ctx: CheckContext) -> list[Finding]:
@@ -181,7 +174,6 @@ async def syntax06(ctx: CheckContext) -> list[Finding]:
     id="SYNTAX07",
     category=CATEGORY,
     name="Each MX hostname is syntactically valid",
-    spec_url=f"{SPEC_BASE}/syntax07.html",
     default_severity=Severity.WARNING,
 )
 async def syntax07(ctx: CheckContext) -> list[Finding]:
@@ -204,7 +196,6 @@ async def syntax07(ctx: CheckContext) -> list[Finding]:
     category=CATEGORY,
     name="Domain length is within DNS limits",
     description="Total domain length must be <= 253 octets and each label <= 63 octets.",
-    spec_url=f"{SPEC_BASE}/syntax08.html",
     default_severity=Severity.ERROR,
 )
 async def syntax08(ctx: CheckContext) -> list[Finding]:

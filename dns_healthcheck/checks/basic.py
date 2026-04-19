@@ -1,4 +1,4 @@
-"""Basic-TP: fundamental zone reachability."""
+"""Basic checks: fundamental zone reachability."""
 
 from __future__ import annotations
 
@@ -7,7 +7,6 @@ from dns_healthcheck.registry import register
 from dns_healthcheck.result import Finding, Severity
 
 CATEGORY = "basic"
-SPEC_BASE = "https://doc.zonemaster.net/latest/specifications/tests/Basic-TP"
 
 
 @register(
@@ -15,7 +14,6 @@ SPEC_BASE = "https://doc.zonemaster.net/latest/specifications/tests/Basic-TP"
     category=CATEGORY,
     name="Parent zone delegates the domain",
     description="The parent zone must contain a delegation (NS records) for the tested domain.",
-    spec_url=f"{SPEC_BASE}/basic01.html",
     default_severity=Severity.CRITICAL,
 )
 async def basic01(ctx: CheckContext) -> list[Finding]:
@@ -36,7 +34,6 @@ async def basic01(ctx: CheckContext) -> list[Finding]:
     category=CATEGORY,
     name="Domain has at least one working name server",
     description="At least one of the delegated name servers must answer authoritatively for the SOA.",
-    spec_url=f"{SPEC_BASE}/basic02.html",
     default_severity=Severity.CRITICAL,
 )
 async def basic02(ctx: CheckContext) -> list[Finding]:
@@ -66,7 +63,6 @@ async def basic02(ctx: CheckContext) -> list[Finding]:
     category=CATEGORY,
     name="Zone resolves a representative A query",
     description="A query for the zone apex should be answerable (NOERROR) by an authoritative server.",
-    spec_url=f"{SPEC_BASE}/basic03.html",
     default_severity=Severity.WARNING,
 )
 async def basic03(ctx: CheckContext) -> list[Finding]:

@@ -1,4 +1,4 @@
-"""dns-healthcheck — Zonemaster-class DNS auditor."""
+"""dns-healthcheck — comprehensive DNS auditor."""
 
 from dns_healthcheck.context import CheckContext
 from dns_healthcheck.registry import REGISTRY, register

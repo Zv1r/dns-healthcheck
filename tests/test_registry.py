@@ -5,7 +5,7 @@ from __future__ import annotations
 from dns_healthcheck.registry import REGISTRY
 
 
-def test_registry_has_all_zonemaster_categories() -> None:
+def test_registry_has_all_core_dns_categories() -> None:
     cats = set(REGISTRY.categories())
     expected = {
         "address",
@@ -21,13 +21,13 @@ def test_registry_has_all_zonemaster_categories() -> None:
     assert expected.issubset(cats), f"Missing: {expected - cats}"
 
 
-def test_registry_has_differentiator_categories() -> None:
+def test_registry_has_extended_categories() -> None:
     cats = set(REGISTRY.categories())
     assert {"email", "web", "propagation"}.issubset(cats)
 
 
 def test_registry_minimum_check_count() -> None:
-    # 74 Zonemaster + 17 differentiators = 91
+    # 9 core DNS categories (74) + 3 extended categories (17) = 91
     assert len(REGISTRY.all()) >= 91
 
 

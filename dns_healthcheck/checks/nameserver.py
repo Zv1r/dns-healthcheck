@@ -1,4 +1,4 @@
-"""Nameserver-TP: behavioural checks against each authoritative server."""
+"""Nameserver behavioural checks against each authoritative server."""
 
 from __future__ import annotations
 
@@ -15,7 +15,6 @@ from dns_healthcheck.registry import register
 from dns_healthcheck.result import Finding, Severity
 
 CATEGORY = "nameserver"
-SPEC_BASE = "https://doc.zonemaster.net/latest/specifications/tests/Nameserver-TP"
 
 
 def _iter_servers(ctx: CheckContext) -> list[tuple[str, str]]:
@@ -30,7 +29,6 @@ def _iter_servers(ctx: CheckContext) -> list[tuple[str, str]]:
     id="NAMESERVER01",
     category=CATEGORY,
     name="Authoritative server is not an open recursive resolver",
-    spec_url=f"{SPEC_BASE}/nameserver01.html",
     default_severity=Severity.WARNING,
 )
 async def nameserver01(ctx: CheckContext) -> list[Finding]:
@@ -54,7 +52,6 @@ async def nameserver01(ctx: CheckContext) -> list[Finding]:
     id="NAMESERVER02",
     category=CATEGORY,
     name="Authoritative server supports EDNS0",
-    spec_url=f"{SPEC_BASE}/nameserver02.html",
     default_severity=Severity.WARNING,
 )
 async def nameserver02(ctx: CheckContext) -> list[Finding]:
@@ -81,7 +78,6 @@ async def nameserver02(ctx: CheckContext) -> list[Finding]:
     category=CATEGORY,
     name="Authoritative server refuses zone transfer (AXFR) from internet",
     description="Public AXFR exposure leaks the entire zone (CWE-200).",
-    spec_url=f"{SPEC_BASE}/nameserver03.html",
     default_severity=Severity.ERROR,
 )
 async def nameserver03(ctx: CheckContext) -> list[Finding]:
@@ -135,7 +131,6 @@ async def nameserver03(ctx: CheckContext) -> list[Finding]:
     category=CATEGORY,
     name="Authoritative server uses consistent source IP",
     description="Some bogus servers reply from a different IP than queried.",
-    spec_url=f"{SPEC_BASE}/nameserver04.html",
     default_severity=Severity.NOTICE,
 )
 async def nameserver04(ctx: CheckContext) -> list[Finding]:
@@ -146,7 +141,6 @@ async def nameserver04(ctx: CheckContext) -> list[Finding]:
     id="NAMESERVER05",
     category=CATEGORY,
     name="Authoritative server returns AAAA records when asked",
-    spec_url=f"{SPEC_BASE}/nameserver05.html",
     default_severity=Severity.NOTICE,
 )
 async def nameserver05(ctx: CheckContext) -> list[Finding]:
@@ -172,7 +166,6 @@ async def nameserver05(ctx: CheckContext) -> list[Finding]:
     id="NAMESERVER06",
     category=CATEGORY,
     name="Authoritative server can resolve its own SOA MNAME",
-    spec_url=f"{SPEC_BASE}/nameserver06.html",
     default_severity=Severity.NOTICE,
 )
 async def nameserver06(ctx: CheckContext) -> list[Finding]:
@@ -196,7 +189,6 @@ async def nameserver06(ctx: CheckContext) -> list[Finding]:
     id="NAMESERVER07",
     category=CATEGORY,
     name="Authoritative server treats names case-insensitively",
-    spec_url=f"{SPEC_BASE}/nameserver07.html",
     default_severity=Severity.NOTICE,
 )
 async def nameserver07(ctx: CheckContext) -> list[Finding]:
@@ -224,7 +216,6 @@ async def nameserver07(ctx: CheckContext) -> list[Finding]:
     id="NAMESERVER08",
     category=CATEGORY,
     name="Authoritative server returns same SOA serial regardless of source",
-    spec_url=f"{SPEC_BASE}/nameserver08.html",
     default_severity=Severity.NOTICE,
 )
 async def nameserver08(ctx: CheckContext) -> list[Finding]:
@@ -235,7 +226,6 @@ async def nameserver08(ctx: CheckContext) -> list[Finding]:
     id="NAMESERVER09",
     category=CATEGORY,
     name="Authoritative server returns NOERROR for the apex SOA",
-    spec_url=f"{SPEC_BASE}/nameserver09.html",
     default_severity=Severity.ERROR,
 )
 async def nameserver09(ctx: CheckContext) -> list[Finding]:
@@ -261,7 +251,6 @@ async def nameserver09(ctx: CheckContext) -> list[Finding]:
     id="NAMESERVER10",
     category=CATEGORY,
     name="Authoritative server responds to DNS COOKIE option (RFC 7873)",
-    spec_url=f"{SPEC_BASE}/nameserver10.html",
     default_severity=Severity.INFO,
 )
 async def nameserver10(ctx: CheckContext) -> list[Finding]:
@@ -273,7 +262,6 @@ async def nameserver10(ctx: CheckContext) -> list[Finding]:
     category=CATEGORY,
     name="Authoritative server does not leak its software version",
     description="`version.bind` CHAOS class queries should not reveal exact software/version.",
-    spec_url=f"{SPEC_BASE}/nameserver11.html",
     default_severity=Severity.NOTICE,
 )
 async def nameserver11(ctx: CheckContext) -> list[Finding]:
@@ -312,7 +300,6 @@ async def nameserver11(ctx: CheckContext) -> list[Finding]:
     id="NAMESERVER12",
     category=CATEGORY,
     name="Authoritative server handles TCP queries promptly",
-    spec_url=f"{SPEC_BASE}/nameserver12.html",
     default_severity=Severity.NOTICE,
 )
 async def nameserver12(ctx: CheckContext) -> list[Finding]:
@@ -336,7 +323,6 @@ async def nameserver12(ctx: CheckContext) -> list[Finding]:
     id="NAMESERVER13",
     category=CATEGORY,
     name="Server gives the same answer over UDP and TCP",
-    spec_url=f"{SPEC_BASE}/nameserver13.html",
     default_severity=Severity.NOTICE,
 )
 async def nameserver13(ctx: CheckContext) -> list[Finding]:
@@ -363,7 +349,6 @@ async def nameserver13(ctx: CheckContext) -> list[Finding]:
     id="NAMESERVER14",
     category=CATEGORY,
     name="Server returns NXDOMAIN for clearly nonexistent name",
-    spec_url=f"{SPEC_BASE}/nameserver14.html",
     default_severity=Severity.NOTICE,
 )
 async def nameserver14(ctx: CheckContext) -> list[Finding]:

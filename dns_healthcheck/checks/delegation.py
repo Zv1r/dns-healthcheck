@@ -1,4 +1,4 @@
-"""Delegation-TP: parent/child delegation correctness."""
+"""Delegation checks: parent/child delegation correctness."""
 
 from __future__ import annotations
 
@@ -9,7 +9,6 @@ from dns_healthcheck.registry import register
 from dns_healthcheck.result import Finding, Severity
 
 CATEGORY = "delegation"
-SPEC_BASE = "https://doc.zonemaster.net/latest/specifications/tests/Delegation-TP"
 
 
 @register(
@@ -17,7 +16,6 @@ SPEC_BASE = "https://doc.zonemaster.net/latest/specifications/tests/Delegation-T
     category=CATEGORY,
     name="At least two name servers in the delegation",
     description="RFC 1035 §4.1 strongly recommends >= 2 name servers per zone.",
-    spec_url=f"{SPEC_BASE}/delegation01.html",
     default_severity=Severity.WARNING,
 )
 async def delegation01(ctx: CheckContext) -> list[Finding]:
@@ -38,7 +36,6 @@ async def delegation01(ctx: CheckContext) -> list[Finding]:
     id="DELEGATION02",
     category=CATEGORY,
     name="Distinct IP addresses across delegated name servers",
-    spec_url=f"{SPEC_BASE}/delegation02.html",
     default_severity=Severity.WARNING,
 )
 async def delegation02(ctx: CheckContext) -> list[Finding]:
@@ -62,7 +59,6 @@ async def delegation02(ctx: CheckContext) -> list[Finding]:
     category=CATEGORY,
     name="Referral packet from parent fits in 512 bytes (UDP)",
     description="A delegation that exceeds 512 bytes risks fragmentation on legacy resolvers.",
-    spec_url=f"{SPEC_BASE}/delegation03.html",
     default_severity=Severity.NOTICE,
 )
 async def delegation03(ctx: CheckContext) -> list[Finding]:
@@ -92,7 +88,6 @@ async def delegation03(ctx: CheckContext) -> list[Finding]:
     id="DELEGATION04",
     category=CATEGORY,
     name="Authoritative servers respond with AA bit set",
-    spec_url=f"{SPEC_BASE}/delegation04.html",
     default_severity=Severity.ERROR,
 )
 async def delegation04(ctx: CheckContext) -> list[Finding]:
@@ -122,7 +117,6 @@ async def delegation04(ctx: CheckContext) -> list[Finding]:
     category=CATEGORY,
     name="Domain apex must not be a CNAME",
     description="RFC 2181 §10.3: a CNAME cannot coexist with NS/SOA at a zone apex.",
-    spec_url=f"{SPEC_BASE}/delegation05.html",
     default_severity=Severity.ERROR,
 )
 async def delegation05(ctx: CheckContext) -> list[Finding]:
@@ -146,7 +140,6 @@ async def delegation05(ctx: CheckContext) -> list[Finding]:
     id="DELEGATION06",
     category=CATEGORY,
     name="Each authoritative server returns a SOA",
-    spec_url=f"{SPEC_BASE}/delegation06.html",
     default_severity=Severity.ERROR,
 )
 async def delegation06(ctx: CheckContext) -> list[Finding]:
@@ -183,7 +176,6 @@ async def delegation06(ctx: CheckContext) -> list[Finding]:
     category=CATEGORY,
     name="Glue is provided for in-bailiwick name servers",
     description="If a name server is in-bailiwick, the parent must include glue (A/AAAA) records.",
-    spec_url=f"{SPEC_BASE}/delegation07.html",
     default_severity=Severity.WARNING,
 )
 async def delegation07(ctx: CheckContext) -> list[Finding]:

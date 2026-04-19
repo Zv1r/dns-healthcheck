@@ -1,4 +1,4 @@
-"""Connectivity-TP: UDP/TCP reachability and topological diversity."""
+"""Connectivity checks: UDP/TCP reachability and topological diversity."""
 
 from __future__ import annotations
 
@@ -10,14 +10,12 @@ from dns_healthcheck.registry import register
 from dns_healthcheck.result import Finding, Severity
 
 CATEGORY = "connectivity"
-SPEC_BASE = "https://doc.zonemaster.net/latest/specifications/tests/Connectivity-TP"
 
 
 @register(
     id="CONNECTIVITY01",
     category=CATEGORY,
     name="Each name server answers SOA over UDP",
-    spec_url=f"{SPEC_BASE}/connectivity01.html",
     default_severity=Severity.ERROR,
 )
 async def connectivity01(ctx: CheckContext) -> list[Finding]:
@@ -50,7 +48,6 @@ async def connectivity01(ctx: CheckContext) -> list[Finding]:
     category=CATEGORY,
     name="Each name server answers SOA over TCP",
     description="Authoritative servers must accept TCP queries (RFC 7766).",
-    spec_url=f"{SPEC_BASE}/connectivity02.html",
     default_severity=Severity.ERROR,
 )
 async def connectivity02(ctx: CheckContext) -> list[Finding]:
@@ -86,7 +83,6 @@ async def connectivity02(ctx: CheckContext) -> list[Finding]:
         "Best practice: name server addresses should not all live in one Autonomous System "
         "(no cheap whois lookup is performed; we approximate via /16 (v4) and /32 (v6) prefix diversity)."
     ),
-    spec_url=f"{SPEC_BASE}/connectivity03.html",
     default_severity=Severity.NOTICE,
 )
 async def connectivity03(ctx: CheckContext) -> list[Finding]:
@@ -112,7 +108,6 @@ async def connectivity03(ctx: CheckContext) -> list[Finding]:
     id="CONNECTIVITY04",
     category=CATEGORY,
     name="Authoritative server addresses span multiple IP prefixes",
-    spec_url=f"{SPEC_BASE}/connectivity04.html",
     default_severity=Severity.NOTICE,
 )
 async def connectivity04(ctx: CheckContext) -> list[Finding]:

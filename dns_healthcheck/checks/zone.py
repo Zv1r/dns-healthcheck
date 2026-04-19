@@ -1,4 +1,4 @@
-"""Zone-TP: SOA timer values, MX presence, mail/SPF policy."""
+"""Zone checks: SOA timer values, MX presence, mail/SPF policy."""
 
 from __future__ import annotations
 
@@ -8,7 +8,6 @@ from dns_healthcheck.registry import register
 from dns_healthcheck.result import Finding, Severity
 
 CATEGORY = "zone"
-SPEC_BASE = "https://doc.zonemaster.net/latest/specifications/tests/Zone-TP"
 
 
 def _soa_or_skip(ctx: CheckContext) -> dict | None:
@@ -19,7 +18,6 @@ def _soa_or_skip(ctx: CheckContext) -> dict | None:
     id="ZONE01",
     category=CATEGORY,
     name="SOA MNAME is a fully-qualified, valid hostname",
-    spec_url=f"{SPEC_BASE}/zone01.html",
     default_severity=Severity.WARNING,
 )
 async def zone01(ctx: CheckContext) -> list[Finding]:
@@ -43,7 +41,6 @@ async def zone01(ctx: CheckContext) -> list[Finding]:
     category=CATEGORY,
     name="SOA refresh value within recommended range",
     description="RFC 1912 §2.2 recommends 1200..43200 seconds.",
-    spec_url=f"{SPEC_BASE}/zone02.html",
     default_severity=Severity.NOTICE,
 )
 async def zone02(ctx: CheckContext) -> list[Finding]:
@@ -63,7 +60,6 @@ async def zone02(ctx: CheckContext) -> list[Finding]:
     category=CATEGORY,
     name="SOA retry within recommended range",
     description="RFC 1912 §2.2 recommends 180..7200 seconds.",
-    spec_url=f"{SPEC_BASE}/zone03.html",
     default_severity=Severity.NOTICE,
 )
 async def zone03(ctx: CheckContext) -> list[Finding]:
@@ -97,7 +93,6 @@ async def zone03(ctx: CheckContext) -> list[Finding]:
     category=CATEGORY,
     name="SOA expire within recommended range",
     description="RFC 1912 §2.2 recommends 1209600..2419200 seconds (2..4 weeks).",
-    spec_url=f"{SPEC_BASE}/zone04.html",
     default_severity=Severity.NOTICE,
 )
 async def zone04(ctx: CheckContext) -> list[Finding]:
@@ -117,7 +112,6 @@ async def zone04(ctx: CheckContext) -> list[Finding]:
     category=CATEGORY,
     name="SOA minimum TTL within recommended range",
     description="RFC 2308 §3 recommends 1..86400 seconds; many ops use 300..3600.",
-    spec_url=f"{SPEC_BASE}/zone05.html",
     default_severity=Severity.NOTICE,
 )
 async def zone05(ctx: CheckContext) -> list[Finding]:
@@ -141,7 +135,6 @@ async def zone05(ctx: CheckContext) -> list[Finding]:
     id="ZONE06",
     category=CATEGORY,
     name="SOA MNAME resolves to an authoritative server",
-    spec_url=f"{SPEC_BASE}/zone06.html",
     default_severity=Severity.WARNING,
 )
 async def zone06(ctx: CheckContext) -> list[Finding]:
@@ -169,7 +162,6 @@ async def zone06(ctx: CheckContext) -> list[Finding]:
     category=CATEGORY,
     name="MX hostnames are not CNAMEs",
     description="RFC 2181 §10.3 forbids MX target being a CNAME.",
-    spec_url=f"{SPEC_BASE}/zone07.html",
     default_severity=Severity.WARNING,
 )
 async def zone07(ctx: CheckContext) -> list[Finding]:
@@ -192,7 +184,6 @@ async def zone07(ctx: CheckContext) -> list[Finding]:
     id="ZONE08",
     category=CATEGORY,
     name="At least one MX record exists (when mail is expected)",
-    spec_url=f"{SPEC_BASE}/zone08.html",
     default_severity=Severity.INFO,
 )
 async def zone08(ctx: CheckContext) -> list[Finding]:
@@ -212,7 +203,6 @@ async def zone08(ctx: CheckContext) -> list[Finding]:
     id="ZONE09",
     category=CATEGORY,
     name="Domain has SPF record (TXT v=spf1) when MX present",
-    spec_url=f"{SPEC_BASE}/zone09.html",
     default_severity=Severity.WARNING,
     requires_mx=True,
 )
@@ -250,7 +240,6 @@ async def zone09(ctx: CheckContext) -> list[Finding]:
     id="ZONE10",
     category=CATEGORY,
     name="Only one SOA record is returned",
-    spec_url=f"{SPEC_BASE}/zone10.html",
     default_severity=Severity.ERROR,
 )
 async def zone10(ctx: CheckContext) -> list[Finding]:
@@ -280,7 +269,6 @@ async def zone10(ctx: CheckContext) -> list[Finding]:
     category=CATEGORY,
     name="No wildcard MX record at apex",
     description="A wildcard MX may capture nonexistent subdomains and surprise mail flow.",
-    spec_url=f"{SPEC_BASE}/zone11.html",
     default_severity=Severity.NOTICE,
 )
 async def zone11(ctx: CheckContext) -> list[Finding]:

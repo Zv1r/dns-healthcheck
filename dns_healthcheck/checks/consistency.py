@@ -1,4 +1,4 @@
-"""Consistency-TP: ensure every authoritative NS gives the same answer."""
+"""Consistency checks: ensure every authoritative NS gives the same answer."""
 
 from __future__ import annotations
 
@@ -9,7 +9,6 @@ from dns_healthcheck.registry import register
 from dns_healthcheck.result import Finding, Severity
 
 CATEGORY = "consistency"
-SPEC_BASE = "https://doc.zonemaster.net/latest/specifications/tests/Consistency-TP"
 
 
 async def _gather_soas(ctx: CheckContext) -> dict[str, dict | None]:
@@ -41,7 +40,6 @@ async def _gather_soas(ctx: CheckContext) -> dict[str, dict | None]:
     id="CONSISTENCY01",
     category=CATEGORY,
     name="SOA serial is identical across all authoritative servers",
-    spec_url=f"{SPEC_BASE}/consistency01.html",
     default_severity=Severity.WARNING,
 )
 async def consistency01(ctx: CheckContext) -> list[Finding]:
@@ -63,7 +61,6 @@ async def consistency01(ctx: CheckContext) -> list[Finding]:
     id="CONSISTENCY02",
     category=CATEGORY,
     name="SOA RNAME consistent across servers",
-    spec_url=f"{SPEC_BASE}/consistency02.html",
     default_severity=Severity.NOTICE,
 )
 async def consistency02(ctx: CheckContext) -> list[Finding]:
@@ -85,7 +82,6 @@ async def consistency02(ctx: CheckContext) -> list[Finding]:
     id="CONSISTENCY03",
     category=CATEGORY,
     name="SOA timer values consistent across servers",
-    spec_url=f"{SPEC_BASE}/consistency03.html",
     default_severity=Severity.NOTICE,
 )
 async def consistency03(ctx: CheckContext) -> list[Finding]:
@@ -107,7 +103,6 @@ async def consistency03(ctx: CheckContext) -> list[Finding]:
     id="CONSISTENCY04",
     category=CATEGORY,
     name="NS RRset is identical at every authoritative server",
-    spec_url=f"{SPEC_BASE}/consistency04.html",
     default_severity=Severity.WARNING,
 )
 async def consistency04(ctx: CheckContext) -> list[Finding]:
@@ -139,7 +134,6 @@ async def consistency04(ctx: CheckContext) -> list[Finding]:
     id="CONSISTENCY05",
     category=CATEGORY,
     name="Glue at parent matches authoritative addresses",
-    spec_url=f"{SPEC_BASE}/consistency05.html",
     default_severity=Severity.WARNING,
 )
 async def consistency05(ctx: CheckContext) -> list[Finding]:
@@ -176,7 +170,6 @@ async def consistency05(ctx: CheckContext) -> list[Finding]:
     id="CONSISTENCY06",
     category=CATEGORY,
     name="SOA MNAME consistent across authoritative servers",
-    spec_url=f"{SPEC_BASE}/consistency06.html",
     default_severity=Severity.NOTICE,
 )
 async def consistency06(ctx: CheckContext) -> list[Finding]:

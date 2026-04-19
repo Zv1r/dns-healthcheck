@@ -1,7 +1,4 @@
-"""Email security checks: SPF, DKIM, DMARC, MTA-STS, TLS-RPT, BIMI, DANE.
-
-Beyond Zonemaster: modern mail-deliverability and authentication posture.
-"""
+"""Email security checks: SPF, DKIM, DMARC, MTA-STS, TLS-RPT, BIMI, DANE."""
 
 from __future__ import annotations
 

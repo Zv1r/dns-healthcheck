@@ -5,12 +5,12 @@ build-backend = "hatchling.build"
 [project]
 name = "dns-healthcheck"
 version = "0.1.0"
-description = "Zonemaster-class DNS auditor with email security, web posture, and multi-resolver propagation checks"
+description = "Comprehensive DNS auditor with DNSSEC, email security, web posture, and multi-resolver propagation checks"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"
 authors = [{ name = "dns-healthcheck contributors" }]
-keywords = ["dns", "dnssec", "zonemaster", "audit", "security", "spf", "dmarc", "caa", "sarif"]
+keywords = ["dns", "dnssec", "audit", "security", "spf", "dmarc", "caa", "sarif", "healthcheck"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",

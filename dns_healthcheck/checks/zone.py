@@ -205,6 +205,7 @@ async def zone08(ctx: CheckContext) -> list[Finding]:
     name="Domain has SPF record (TXT v=spf1) when MX present",
     default_severity=Severity.WARNING,
     requires_mx=True,
+    requires_non_tld=True,
 )
 async def zone09(ctx: CheckContext) -> list[Finding]:
     r = await ctx.resolver.query_stub(ctx.domain, "TXT")

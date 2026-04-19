@@ -34,6 +34,7 @@ async def _txt_records(ctx: CheckContext, name: str) -> list[str]:
     name="SPF (v=spf1) record present and parseable",
     description="RFC 7208. Domain accepting mail must publish SPF policy.",
     default_severity=Severity.WARNING,
+    requires_non_tld=True,
 )
 async def email01(ctx: CheckContext) -> list[Finding]:
     txts = await _txt_records(ctx, ctx.domain)
@@ -60,6 +61,7 @@ async def email01(ctx: CheckContext) -> list[Finding]:
     name="SPF policy uses safe terminator and stays under DNS lookup limit",
     description="RFC 7208 §4.6.4: policy may not require more than 10 mechanism DNS lookups; +all is unsafe.",
     default_severity=Severity.WARNING,
+    requires_non_tld=True,
 )
 async def email02(ctx: CheckContext) -> list[Finding]:
     txts = await _txt_records(ctx, ctx.domain)
@@ -142,6 +144,7 @@ async def _spf_lookup_count(ctx: CheckContext, current: str, spf: str, depth: in
     name="DMARC policy is published with strict-enough enforcement",
     description="RFC 7489 — _dmarc.{domain} TXT must exist; p=none provides no protection.",
     default_severity=Severity.WARNING,
+    requires_non_tld=True,
 )
 async def email03(ctx: CheckContext) -> list[Finding]:
     txts = await _txt_records(ctx, f"_dmarc.{ctx.domain}")
@@ -182,6 +185,7 @@ async def email03(ctx: CheckContext) -> list[Finding]:
     description="Probes ~25 common DKIM selectors; absence is informational since selectors are arbitrary.",
     default_severity=Severity.INFO,
     requires_mx=True,
+    requires_non_tld=True,
 )
 async def email04(ctx: CheckContext) -> list[Finding]:
     found: list[str] = []
@@ -226,6 +230,7 @@ async def email04(ctx: CheckContext) -> list[Finding]:
     description="RFC 8461. Requires _mta-sts TXT and a policy at https://mta-sts.{domain}/.well-known/mta-sts.txt.",
     default_severity=Severity.NOTICE,
     requires_mx=True,
+    requires_non_tld=True,
 )
 async def email05(ctx: CheckContext) -> list[Finding]:
     txts = await _txt_records(ctx, f"_mta-sts.{ctx.domain}")
@@ -279,6 +284,7 @@ async def email05(ctx: CheckContext) -> list[Finding]:
     description="RFC 8460. _smtp._tls.{domain} TXT enables TLS failure reports.",
     default_severity=Severity.INFO,
     requires_mx=True,
+    requires_non_tld=True,
 )
 async def email06(ctx: CheckContext) -> list[Finding]:
     txts = await _txt_records(ctx, f"_smtp._tls.{ctx.domain}")
@@ -301,6 +307,7 @@ async def email06(ctx: CheckContext) -> list[Finding]:
     description="BIMI: default._bimi.{domain} TXT publishes a logo URL and (ideally) a Verified Mark Certificate.",
     default_severity=Severity.INFO,
     requires_mx=True,
+    requires_non_tld=True,
 )
 async def email07(ctx: CheckContext) -> list[Finding]:
     txts = await _txt_records(ctx, f"default._bimi.{ctx.domain}")
@@ -331,6 +338,7 @@ async def email07(ctx: CheckContext) -> list[Finding]:
     description="RFC 7672 — DANE for SMTP requires DNSSEC + TLSA records on each MX target.",
     default_severity=Severity.INFO,
     requires_mx=True,
+    requires_non_tld=True,
 )
 async def email08(ctx: CheckContext) -> list[Finding]:
     if not ctx.zone.has_dnssec:
@@ -361,6 +369,7 @@ async def email08(ctx: CheckContext) -> list[Finding]:
     ),
     default_severity=Severity.WARNING,
     requires_mx=True,
+    requires_non_tld=True,
 )
 async def email09(ctx: CheckContext) -> list[Finding]:
     import dns.reversename
@@ -433,6 +442,7 @@ async def _smtp_probe(host: str, port: int = 25, timeout: float = 6.0) -> SmtpPr
     ),
     default_severity=Severity.WARNING,
     requires_mx=True,
+    requires_non_tld=True,
 )
 async def email10(ctx: CheckContext) -> list[Finding]:
     findings: list[Finding] = []
@@ -485,6 +495,7 @@ async def email10(ctx: CheckContext) -> list[Finding]:
     ),
     default_severity=Severity.WARNING,
     requires_mx=True,
+    requires_non_tld=True,
 )
 async def email11(ctx: CheckContext) -> list[Finding]:
     findings: list[Finding] = []
@@ -548,6 +559,7 @@ async def email11(ctx: CheckContext) -> list[Finding]:
         "a normal DNS query — no API key required."
     ),
     default_severity=Severity.ERROR,
+    requires_non_tld=True,
 )
 async def email12(ctx: CheckContext) -> list[Finding]:
     qname = f"{ctx.domain}.dbl.spamhaus.org"

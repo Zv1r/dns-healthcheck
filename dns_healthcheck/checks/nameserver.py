@@ -319,8 +319,16 @@ async def nameserver10(ctx: CheckContext) -> list[Finding]:
         except Exception:
             return None
         for opt in resp.options or []:
-            # COOKIE option (10): >8 bytes means a server cookie was appended.
-            if opt.otype == 10 and len(opt.data) > 8:
+            # COOKIE option. dnspython parses incoming cookies as
+            # CookieOption with `.server` set; a non-empty server cookie
+            # means the server actually supports COOKIE (and isn't just
+            # echoing our client cookie). Also tolerate older dnspython
+            # that may return GenericOption with raw bytes.
+            if opt.otype != dns.edns.OptionType.COOKIE:
+                continue
+            if isinstance(opt, dns.edns.CookieOption) and len(opt.server) > 0:
+                return None
+            if isinstance(opt, dns.edns.GenericOption) and len(opt.data) > 8:
                 return None
         return Finding(
             check_id="NAMESERVER10",

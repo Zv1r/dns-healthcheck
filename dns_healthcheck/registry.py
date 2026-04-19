@@ -34,6 +34,7 @@ class CheckSpec:
     requires_dnssec: bool = False
     requires_mx: bool = False
     requires_https: bool = False
+    requires_non_tld: bool = False
     default_severity: Severity = Severity.NOTICE
 
 
@@ -108,6 +109,7 @@ def register(
     requires_dnssec: bool = False,
     requires_mx: bool = False,
     requires_https: bool = False,
+    requires_non_tld: bool = False,
     default_severity: Severity = Severity.NOTICE,
 ) -> Callable[[CheckFn], CheckFn]:
     """Decorator that registers an async check function under ``id``."""
@@ -124,6 +126,7 @@ def register(
                 requires_dnssec=requires_dnssec,
                 requires_mx=requires_mx,
                 requires_https=requires_https,
+                requires_non_tld=requires_non_tld,
                 default_severity=default_severity,
             )
         )

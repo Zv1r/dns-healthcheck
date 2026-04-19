@@ -91,9 +91,14 @@ class CheckContext:
             self._initialized = True
 
     async def _discover_parent_ns(self) -> None:
-        """Walk from root to find the delegation NS records and any glue."""
-        parent = self.zone.parent
-        if not parent:
+        """Walk from root to find the delegation NS records and any glue.
+
+        For TLDs (single-label domains like "ua") the iterative walk has just one
+        step — query NS for "ua." at the root servers. The previous early-return
+        on `parent == ""` skipped this and left the whole zone state empty,
+        which silently broke every NS-iterating check.
+        """
+        if not self.domain:
             return
 
         servers = list(self.resolver.root_servers())

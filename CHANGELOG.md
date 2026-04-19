@@ -4,6 +4,42 @@ All notable changes to `dns-healthcheck` are recorded here. The version
 number is the source of truth in `pyproject.toml` and `dns_healthcheck/__init__.py`;
 keep them in sync (use `scripts/bump-version.py` to bump both).
 
+## 0.5.1 — 2026-04-19
+
+### Fixed — TLD audit bugs surfaced by `dnshc check ua`
+
+- `_discover_parent_ns` returned early when the target's parent was empty
+  (true for any single-label domain like a TLD). That left
+  `parent_ns` / `child_ns` / `authoritative_servers()` empty, so:
+  - DNSKEY discovery had no servers to ask → false
+    `DNSSEC01: Parent has DS but apex returns no DNSKEY` and cascading
+    DNSSEC06/07/11/12 errors.
+  - Every NS-iterating check (`NAMESERVER*`, `CONNECTIVITY*`,
+    `DELEGATION04+06`) silently passed with zero iterations — no signal
+    at all.
+  Fix: only bail out when `self.domain` itself is empty; let the
+  iterative walk produce the parent-zone NS IPs (root for a TLD) and
+  populate `parent_ns` from the root's referral.
+- `NAMESERVER10` (DNS COOKIE) crashed with `AttributeError: 'CookieOption'
+  has no attribute 'data'`. dnspython 2.6+ parses incoming cookies into
+  a typed `CookieOption` (with `.client` / `.server`) instead of the
+  generic option byte buffer. Now handles both shapes.
+
+### Added
+
+- `requires_non_tld` flag on the check spec — gates checks that aren't
+  meaningful for a TLD (e.g. SPF, DMARC, DBL listing). The runner skips
+  them with reason `"Check is not meaningful for a TLD"` instead of
+  reporting WARNINGs that no operator would act on.
+- Applied to: `EMAIL01-12`, `ZONE09`. (Web checks already gracefully
+  degrade when the apex has no A/AAAA — no change needed there.)
+
+### Verified
+
+`dnshc check ua` went from 5 errors / 7 warnings to 0 errors / 0
+warnings, with 13 sensible TLD-skips. Non-TLD runs unchanged
+(iana.org 2 warnings, rift.org.ua 1 warning).
+
 ## 0.5.0 — 2026-04-19
 
 ### Added — 11 enterprise-tool-parity checks (101 -> 112)

@@ -22,6 +22,10 @@ async def _run_one(spec: CheckSpec, ctx: CheckContext) -> CheckResult:
         res.skipped = True
         res.skip_reason = "Zone has no MX records"
         return res
+    if spec.requires_non_tld and "." not in ctx.domain:
+        res.skipped = True
+        res.skip_reason = "Check is not meaningful for a TLD"
+        return res
     t0 = time.monotonic()
     try:
         findings = await spec.fn(ctx)

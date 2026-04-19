@@ -173,14 +173,16 @@ git tag "v$(python scripts/bump-version.py --print)"
 git push --follow-tags
 ```
 
-### About the CI workflow
+### Quality gates
 
-`.github/workflows/ci.yml` runs **ruff + mypy + pytest on Python 3.10–3.13**
-on every push to `main` and every PR. It is scoped to source-relevant
-paths (`dns_healthcheck/`, `tests/`, `pyproject.toml`, the workflow
-itself) so README / docs-only commits don't spend runner minutes. You
-can disable the workflow entirely at *Settings → Actions → Disable
-Actions* if you don't want CI.
+There is no GitHub Actions workflow — run the gates locally before
+pushing:
+
+```bash
+ruff check . && ruff format --check .
+mypy dns_healthcheck
+pytest
+```
 
 ## License
 

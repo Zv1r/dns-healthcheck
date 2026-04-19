@@ -99,36 +99,6 @@ dnshc check example.com --output sarif --fail-on warning > report.sarif
 
 `dnshc list-profiles` to see them in your terminal.
 
-## Use as a GitHub Action
-
-```yaml
-# .github/workflows/dns-regression.yml
-name: dns-regression
-on:
-  schedule: [{ cron: "0 6 * * *" }]
-  workflow_dispatch:
-
-permissions:
-  contents: read
-  security-events: write    # required to upload SARIF
-
-jobs:
-  audit:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: Zv1r/dns-healthcheck@main
-        with:
-          domain: example.com
-          profile: ci
-          output: sarif
-          fail-on: error
-```
-
-The action installs `dns-healthcheck` straight from this repository at the ref you
-pinned (`@main`, a branch, a tag, or a commit SHA), runs the audit, and (by default)
-uploads the SARIF to **GitHub Code Scanning** so each finding shows up in the
-Security tab. Once a versioned release is cut, you'll be able to pin a `@v0.1.0` tag.
-
 ## Use as a library
 
 ```python

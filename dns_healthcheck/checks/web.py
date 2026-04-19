@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import socket
 import ssl
 from datetime import datetime, timezone
@@ -253,5 +254,146 @@ async def web06(ctx: CheckContext) -> list[Finding]:
     except Exception as e:
         return [
             Finding("WEB06", Severity.WARNING, f"TLS handshake failed against {addrs[0]}:443: {e}", {"error": str(e)})
+        ]
+    return []
+
+
+@register(
+    id="WEB07",
+    category=CATEGORY,
+    name="HTTPS endpoint refuses TLS 1.0 / 1.1",
+    description=(
+        "RFC 8996 (BCP 195): TLS 1.0 and 1.1 MUST NOT be supported. PCI-DSS 3.2.1 "
+        "and the major browsers all dropped them. Try a 1.0/1.1 handshake; success "
+        "means the server still accepts an obsolete protocol version."
+    ),
+    default_severity=Severity.ERROR,
+)
+async def web07(ctx: CheckContext) -> list[Finding]:
+    addrs = await ctx.resolver.resolve_addresses(ctx.domain)
+    if not addrs:
+        return []
+    addr = addrs[0]
+    findings: list[Finding] = []
+
+    def try_old_tls(proto: ssl.TLSVersion, label: str) -> str | None:
+        try:
+            ctx_old = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+            ctx_old.check_hostname = False
+            ctx_old.verify_mode = ssl.CERT_NONE
+            ctx_old.minimum_version = proto
+            ctx_old.maximum_version = proto
+            with socket.create_connection((addr, 443), timeout=6.0) as sock:
+                with ctx_old.wrap_socket(sock, server_hostname=ctx.domain) as ssock:
+                    return ssock.version()
+        except (ssl.SSLError, OSError):
+            return None
+        except Exception:
+            return None
+
+    for proto, label in (
+        (ssl.TLSVersion.TLSv1, "TLS 1.0"),
+        (ssl.TLSVersion.TLSv1_1, "TLS 1.1"),
+    ):
+        negotiated = await asyncio.get_running_loop().run_in_executor(None, try_old_tls, proto, label)
+        if negotiated:
+            findings.append(
+                Finding(
+                    "WEB07",
+                    Severity.ERROR,
+                    f"HTTPS server accepts obsolete {label} (negotiated {negotiated})",
+                    {"protocol": label, "negotiated": negotiated},
+                )
+            )
+    return findings
+
+
+@register(
+    id="WEB08",
+    category=CATEGORY,
+    name="TLS certificate uses a modern signature algorithm",
+    description=(
+        "RFC 6194 / NIST SP 800-131A: SHA-1 (and earlier) are deprecated for "
+        "digital signatures. A SHA-1-signed leaf certificate is rejected by "
+        "every modern browser and MTA."
+    ),
+    default_severity=Severity.ERROR,
+)
+async def web08(ctx: CheckContext) -> list[Finding]:
+    addrs = await ctx.resolver.resolve_addresses(ctx.domain)
+    if not addrs:
+        return []
+    addr = addrs[0]
+    try:
+        sock_context = ssl.create_default_context()
+        with socket.create_connection((addr, 443), timeout=8.0) as sock:
+            with sock_context.wrap_socket(sock, server_hostname=ctx.domain) as ssock:
+                der = ssock.getpeercert(binary_form=True)
+        if not der:
+            return []
+        cert = x509.load_der_x509_certificate(der, default_backend())
+    except Exception:
+        return []
+    sig_alg = cert.signature_hash_algorithm
+    if sig_alg is None:
+        return []
+    name = sig_alg.name.lower()
+    if name in {"md5", "sha1"}:
+        return [
+            Finding(
+                "WEB08",
+                Severity.ERROR,
+                f"TLS certificate signed with deprecated {sig_alg.name} — modern clients will reject",
+                {"algorithm": sig_alg.name},
+            )
+        ]
+    return []
+
+
+@register(
+    id="WEB09",
+    category=CATEGORY,
+    name="HTTPS endpoint negotiates HTTP/2 via ALPN",
+    description=(
+        "RFC 7540 + RFC 7301: a modern HTTPS endpoint SHOULD advertise the "
+        "h2 ALPN identifier so clients can use HTTP/2 multiplexing. Pure "
+        "HTTP/1.1-only endpoints add latency and head-of-line blocking."
+    ),
+    default_severity=Severity.NOTICE,
+)
+async def web09(ctx: CheckContext) -> list[Finding]:
+    addrs = await ctx.resolver.resolve_addresses(ctx.domain)
+    if not addrs:
+        return []
+    addr = addrs[0]
+
+    def negotiate() -> str | None:
+        try:
+            ctx_alpn = ssl.create_default_context()
+            ctx_alpn.set_alpn_protocols(["h2", "http/1.1"])
+            with socket.create_connection((addr, 443), timeout=6.0) as sock:
+                with ctx_alpn.wrap_socket(sock, server_hostname=ctx.domain) as ssock:
+                    return ssock.selected_alpn_protocol()
+        except Exception:
+            return None
+
+    selected = await asyncio.get_running_loop().run_in_executor(None, negotiate)
+    if selected and selected != "h2":
+        return [
+            Finding(
+                "WEB09",
+                Severity.NOTICE,
+                f"HTTPS server negotiated {selected!r} via ALPN (no HTTP/2 offered)",
+                {"alpn": selected},
+            )
+        ]
+    if selected is None:
+        return [
+            Finding(
+                "WEB09",
+                Severity.NOTICE,
+                "HTTPS server did not negotiate any ALPN protocol",
+                {},
+            )
         ]
     return []

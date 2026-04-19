@@ -683,3 +683,164 @@ async def nameserver19(ctx: CheckContext) -> list[Finding]:
         if f:
             findings.append(f)
     return findings
+
+
+@register(
+    id="NAMESERVER20",
+    category=CATEGORY,
+    name="Authoritative server responds within reasonable RTT",
+    description=(
+        "Per-NS UDP query latency. >150 ms is a NOTICE, >500 ms is a WARNING. "
+        "Slow authoritative answers compound through the resolver hierarchy and "
+        "noticeably degrade web/mail user experience."
+    ),
+    default_severity=Severity.NOTICE,
+)
+async def nameserver20(ctx: CheckContext) -> list[Finding]:
+    import time
+
+    import dns.asyncquery
+    import dns.message as _msg
+
+    findings: list[Finding] = []
+
+    async def probe(ns_name: str, addr: str) -> Finding | None:
+        req = _msg.make_query(ctx.domain, "SOA")
+        # Fresh query (skip cache) to actually measure RTT.
+        try:
+            t0 = time.monotonic()
+            await dns.asyncquery.udp(req, addr, timeout=4.0, ignore_unexpected=True)
+            elapsed_ms = (time.monotonic() - t0) * 1000
+        except Exception:
+            return None
+        if elapsed_ms > 500:
+            return Finding(
+                check_id="NAMESERVER20",
+                severity=Severity.WARNING,
+                message=f"{ns_name}/{addr} answered SOA in {elapsed_ms:.0f} ms (>500 ms)",
+                args={"ns": ns_name, "address": addr, "rtt_ms": int(elapsed_ms)},
+                ns=ns_name,
+            )
+        if elapsed_ms > 150:
+            return Finding(
+                check_id="NAMESERVER20",
+                severity=Severity.NOTICE,
+                message=f"{ns_name}/{addr} answered SOA in {elapsed_ms:.0f} ms (>150 ms)",
+                args={"ns": ns_name, "address": addr, "rtt_ms": int(elapsed_ms)},
+                ns=ns_name,
+            )
+        return None
+
+    tasks = [probe(n, a) for n, a in _iter_servers(ctx)]
+    for f in await asyncio.gather(*tasks):
+        if f:
+            findings.append(f)
+    return findings
+
+
+@register(
+    id="NAMESERVER21",
+    category=CATEGORY,
+    name="Server sets TC bit and TCP fallback works for large responses",
+    description=(
+        "RFC 1035 §4.2.1 + RFC 7766: when a UDP response exceeds the buffer the "
+        "client advertised, the server MUST set the TC (truncation) bit and the "
+        "client MUST be able to retry over TCP with a complete answer. We probe "
+        "DNSKEY (typically large, especially with RRSIG) at EDNS bufsize=512."
+    ),
+    default_severity=Severity.WARNING,
+)
+async def nameserver21(ctx: CheckContext) -> list[Finding]:
+    import dns.asyncquery
+    import dns.message as _msg
+
+    findings: list[Finding] = []
+
+    async def probe(ns_name: str, addr: str) -> Finding | None:
+        # Force a tiny EDNS buffer so almost any DNSKEY+RRSIG will overflow.
+        try:
+            req = _msg.make_query(ctx.domain, "DNSKEY", want_dnssec=True)
+            req.use_edns(0, payload=512)
+            udp_resp = await dns.asyncquery.udp(req, addr, timeout=4.0, ignore_unexpected=True)
+        except Exception:
+            return None
+        if not (udp_resp.flags & dns.flags.TC):
+            # Either response fits in 512B (small zone — fine) or server ignores
+            # the bufsize (worth reporting at INFO but skip to avoid noise).
+            return None
+        # TC was set — verify TCP retry returns a full, untruncated response.
+        try:
+            tcp_req = _msg.make_query(ctx.domain, "DNSKEY", want_dnssec=True)
+            tcp_resp = await dns.asyncquery.tcp(tcp_req, addr, timeout=4.0)
+        except Exception as e:
+            return Finding(
+                check_id="NAMESERVER21",
+                severity=Severity.WARNING,
+                message=f"{ns_name}/{addr} set TC over UDP but TCP retry failed: {e}",
+                args={"ns": ns_name, "address": addr, "error": str(e)},
+                ns=ns_name,
+            )
+        if tcp_resp.flags & dns.flags.TC:
+            return Finding(
+                check_id="NAMESERVER21",
+                severity=Severity.WARNING,
+                message=f"{ns_name}/{addr} returned a still-truncated response over TCP",
+                args={"ns": ns_name, "address": addr},
+                ns=ns_name,
+            )
+        return None
+
+    tasks = [probe(n, a) for n, a in _iter_servers(ctx)[:4]]
+    for f in await asyncio.gather(*tasks):
+        if f:
+            findings.append(f)
+    return findings
+
+
+@register(
+    id="NAMESERVER22",
+    category=CATEGORY,
+    name="Server advertises a sane EDNS UDP buffer size (RFC 9715)",
+    description=(
+        "RFC 9715 §4: authoritative servers SHOULD advertise an EDNS UDP buffer "
+        "size of 1232 (the safe MTU floor). Larger advertised payloads invite "
+        "IPv6 fragmentation attacks; missing OPT (no EDNS) breaks DNSSEC."
+    ),
+    default_severity=Severity.NOTICE,
+)
+async def nameserver22(ctx: CheckContext) -> list[Finding]:
+    import dns.asyncquery
+    import dns.message as _msg
+
+    findings: list[Finding] = []
+
+    async def probe(ns_name: str, addr: str) -> Finding | None:
+        try:
+            req = _msg.make_query(ctx.domain, "SOA")
+            req.use_edns(0, payload=1232)
+            resp = await dns.asyncquery.udp(req, addr, timeout=4.0, ignore_unexpected=True)
+        except Exception:
+            return None
+        if resp.edns < 0:
+            return Finding(
+                check_id="NAMESERVER22",
+                severity=Severity.WARNING,
+                message=f"{ns_name}/{addr} stripped EDNS — DNSSEC and large RRsets will break",
+                args={"ns": ns_name, "address": addr},
+                ns=ns_name,
+            )
+        if resp.payload > 4096:
+            return Finding(
+                check_id="NAMESERVER22",
+                severity=Severity.NOTICE,
+                message=(f"{ns_name}/{addr} advertises EDNS UDP payload {resp.payload}B (RFC 9715 recommends 1232)"),
+                args={"ns": ns_name, "address": addr, "payload": resp.payload},
+                ns=ns_name,
+            )
+        return None
+
+    tasks = [probe(n, a) for n, a in _iter_servers(ctx)]
+    for f in await asyncio.gather(*tasks):
+        if f:
+            findings.append(f)
+    return findings

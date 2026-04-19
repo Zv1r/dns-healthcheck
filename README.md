@@ -2,7 +2,7 @@
 
 A comprehensive DNS auditor for the modern internet, packaged as a single Python CLI.
 
-`dns-healthcheck` runs **101 checks** against any domain you point it at, covering the full
+`dns-healthcheck` runs **112 checks** against any domain you point it at, covering the full
 RFC-defined DNS surface (delegation, name servers, DNSSEC, SOA, syntax, connectivity,
 consistency) **plus** four areas most auditors skip:
 
@@ -121,13 +121,13 @@ print(render_json(report))
 | `consistency` | 6 | SOA serial / RNAME / timers / NS / glue / MNAME |
 | `delegation` | 10 | Min NS, distinct IPs, AA bit, CNAME-at-apex, glue, NS-not-CNAME (RFC 2181), NS resolves, IPv4+IPv6 (BCP 91) |
 | `dnssec` | 19 | DS, DNSKEY, RRSIG, NSEC/NSEC3 (RFC 9276 incl. salt), key strength, CDS, signature validation |
-| `nameserver` | 19 | Recursion, EDNS0/version, AXFR + IXFR refusal (RFC 1995), DNS COOKIE (RFC 7873), 0x20 case preservation, RFC 2308 negative-cache SOA, RFC 8482 ANY minimisation, NXDOMAIN, version disclosure, serial stability |
+| `nameserver` | 22 | Recursion, EDNS0/version negotiation, EDNS bufsize (RFC 9715), AXFR + IXFR refusal (RFC 1995), COOKIE (RFC 7873), 0x20 case preservation, RFC 2308 negative-cache SOA, RFC 8482 ANY minimisation, TC bit + TCP fallback (RFC 7766), per-NS RTT, NXDOMAIN, version disclosure, serial stability |
 | `syntax` | 8 | Charset, hyphen rules, IDN, SOA RNAME/MNAME, hostname validity |
 | `zone` | 12 | SOA timers, RFC 2308 SOA-TTL-vs-MINIMUM, MX hygiene, SPF presence, wildcard MX |
-| `email` | 8 | SPF, DKIM, DMARC, MTA-STS, TLS-RPT, BIMI, DANE |
-| `web` | 6 | CAA, HTTPS redirect, HSTS, preload, TLS cert |
-| `propagation` | 3 | A/AAAA/MX/NS consistency across 5 public resolvers |
-| **Total** | **101** | |
+| `email` | 12 | SPF, DKIM, DMARC, MTA-STS, TLS-RPT, BIMI, DANE, MX PTR / SMTP-25 / STARTTLS (RFC 3207), Spamhaus DBL |
+| `web` | 9 | CAA, HTTPS redirect, HSTS, preload, TLS cert + SAN, TLS 1.0/1.1 floor (RFC 8996), modern signature alg, HTTP/2 ALPN |
+| `propagation` | 4 | A/AAAA/MX/NS consistency + TTL-skew across 5 public resolvers |
+| **Total** | **112** | |
 
 `dnshc list-checks` for the full catalog. `dnshc explain <CHECK_ID>` for one check's spec.
 

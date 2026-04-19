@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import re
 
 import dns.rdatatype
@@ -347,3 +348,222 @@ async def email08(ctx: CheckContext) -> list[Finding]:
                 )
             )
     return findings
+
+
+@register(
+    id="EMAIL09",
+    category=CATEGORY,
+    name="Each MX target has a PTR record matching its forward A/AAAA",
+    description=(
+        "Receiving MTAs commonly require the connecting IP to have a PTR that "
+        "resolves back to the MX hostname (forward-confirmed reverse DNS). "
+        "Mismatch causes spam classification and outright rejection."
+    ),
+    default_severity=Severity.WARNING,
+    requires_mx=True,
+)
+async def email09(ctx: CheckContext) -> list[Finding]:
+    import dns.reversename
+
+    findings: list[Finding] = []
+    for _, mx in await ctx.get_mx():
+        addrs = await ctx.resolver.resolve_addresses(mx)
+        for addr in addrs:
+            try:
+                arpa = dns.reversename.from_address(addr).to_text()
+                r = await ctx.resolver.query_stub(arpa, "PTR")
+            except Exception:
+                continue
+            if not r.response or not r.answer:
+                findings.append(
+                    Finding(
+                        check_id="EMAIL09",
+                        severity=Severity.WARNING,
+                        message=f"MX {mx} ({addr}) has no PTR record",
+                        args={"mx": mx, "address": addr},
+                    )
+                )
+                continue
+            ptr_names = [
+                rd.to_text().rstrip(".").lower()
+                for rrset in r.response.answer
+                if rrset.rdtype == dns.rdatatype.PTR
+                for rd in rrset
+            ]
+            if mx not in ptr_names:
+                findings.append(
+                    Finding(
+                        check_id="EMAIL09",
+                        severity=Severity.NOTICE,
+                        message=(
+                            f"MX {mx} PTR ({', '.join(ptr_names)}) does not match "
+                            f"the MX hostname (forward-confirmed reverse DNS)"
+                        ),
+                        args={"mx": mx, "address": addr, "ptr": ptr_names},
+                    )
+                )
+    return findings
+
+
+SmtpProbe = tuple[str, asyncio.StreamReader, asyncio.StreamWriter] | tuple[str, None, None]
+
+
+async def _smtp_probe(host: str, port: int = 25, timeout: float = 6.0) -> SmtpProbe:
+    """Open SMTP, read banner; returns (banner_or_error, reader, writer)."""
+    try:
+        reader, writer = await asyncio.wait_for(asyncio.open_connection(host, port), timeout=timeout)
+    except Exception as e:
+        return (f"connect-error:{type(e).__name__}", None, None)
+    try:
+        banner = (await asyncio.wait_for(reader.readline(), timeout=timeout)).decode(errors="ignore").rstrip()
+    except Exception as e:
+        writer.close()
+        return (f"banner-error:{type(e).__name__}", None, None)
+    return (banner, reader, writer)
+
+
+@register(
+    id="EMAIL10",
+    category=CATEGORY,
+    name="Each MX accepts SMTP connections on port 25 with a 220 banner",
+    description=(
+        "RFC 5321 §3.1: a server SHOULD greet inbound TCP/25 connections with a "
+        "code-220 banner. Connection failures are downgraded to NOTICE because "
+        "many ISPs block egress port 25 from end-user networks."
+    ),
+    default_severity=Severity.WARNING,
+    requires_mx=True,
+)
+async def email10(ctx: CheckContext) -> list[Finding]:
+    findings: list[Finding] = []
+    for _, mx in await ctx.get_mx():
+        banner, _reader, writer = await _smtp_probe(mx, 25)
+        if writer is not None:
+            writer.close()
+            with contextlib.suppress(Exception):
+                await writer.wait_closed()
+        if banner.startswith("connect-error"):
+            findings.append(
+                Finding(
+                    check_id="EMAIL10",
+                    severity=Severity.NOTICE,
+                    message=f"Could not connect to {mx}:25 ({banner}) — possibly egress port-25 block",
+                    args={"mx": mx, "error": banner},
+                )
+            )
+            continue
+        if banner.startswith("banner-error"):
+            findings.append(
+                Finding(
+                    check_id="EMAIL10",
+                    severity=Severity.WARNING,
+                    message=f"{mx}:25 accepted TCP but did not send a banner ({banner})",
+                    args={"mx": mx, "error": banner},
+                )
+            )
+            continue
+        if not banner.startswith("220"):
+            findings.append(
+                Finding(
+                    check_id="EMAIL10",
+                    severity=Severity.WARNING,
+                    message=f"{mx}:25 did not greet with code 220 (got {banner!r})",
+                    args={"mx": mx, "banner": banner},
+                )
+            )
+    return findings
+
+
+@register(
+    id="EMAIL11",
+    category=CATEGORY,
+    name="Each MX advertises STARTTLS (RFC 3207)",
+    description=(
+        "RFC 3207: a public-facing MX SHOULD offer STARTTLS so SMTP can be "
+        "encrypted opportunistically. Skipped (NOTICE) when port 25 is blocked "
+        "by the local network."
+    ),
+    default_severity=Severity.WARNING,
+    requires_mx=True,
+)
+async def email11(ctx: CheckContext) -> list[Finding]:
+    findings: list[Finding] = []
+    for _, mx in await ctx.get_mx():
+        banner, reader, writer = await _smtp_probe(mx, 25)
+        if reader is None or writer is None:
+            findings.append(
+                Finding(
+                    check_id="EMAIL11",
+                    severity=Severity.NOTICE,
+                    message=f"Could not test STARTTLS on {mx}:25 ({banner})",
+                    args={"mx": mx, "error": banner},
+                )
+            )
+            continue
+        try:
+            writer.write(b"EHLO dns-healthcheck.local\r\n")
+            await writer.drain()
+            ehlo_lines: list[str] = []
+            while True:
+                line = await asyncio.wait_for(reader.readline(), timeout=4.0)
+                if not line:
+                    break
+                ehlo_lines.append(line.decode(errors="ignore").rstrip())
+                # Multi-line replies: '250-...' continues, '250 ...' ends.
+                if line.startswith(b"250 ") or not line.startswith(b"250-"):
+                    break
+            ehlo = "\n".join(ehlo_lines)
+            if "STARTTLS" not in ehlo.upper():
+                findings.append(
+                    Finding(
+                        check_id="EMAIL11",
+                        severity=Severity.WARNING,
+                        message=f"{mx} did not advertise STARTTLS in EHLO response",
+                        args={"mx": mx, "ehlo": ehlo[:200]},
+                    )
+                )
+        except Exception as e:
+            findings.append(
+                Finding(
+                    check_id="EMAIL11",
+                    severity=Severity.NOTICE,
+                    message=f"EHLO probe to {mx} failed: {e}",
+                    args={"mx": mx, "error": str(e)},
+                )
+            )
+        finally:
+            writer.close()
+            with contextlib.suppress(Exception):
+                await writer.wait_closed()
+    return findings
+
+
+@register(
+    id="EMAIL12",
+    category=CATEGORY,
+    name="Domain is not listed on Spamhaus DBL",
+    description=(
+        "Spamhaus Domain Block List (dbl.spamhaus.org) flags domains seen in "
+        "spam. Listing produces near-instant deliverability collapse. Lookup is "
+        "a normal DNS query — no API key required."
+    ),
+    default_severity=Severity.ERROR,
+)
+async def email12(ctx: CheckContext) -> list[Finding]:
+    qname = f"{ctx.domain}.dbl.spamhaus.org"
+    r = await ctx.resolver.query_stub(qname, "A")
+    if r.error or r.response is None:
+        return []
+    listings = [rd.to_text() for rrset in r.response.answer if rrset.rdtype == dns.rdatatype.A for rd in rrset]
+    # Spamhaus error returns 127.255.255.x — treat as "could not check".
+    real_listings = [a for a in listings if not a.startswith("127.255.")]
+    if real_listings:
+        return [
+            Finding(
+                "EMAIL12",
+                Severity.ERROR,
+                f"{ctx.domain} is listed on Spamhaus DBL (return codes: {', '.join(real_listings)})",
+                {"return_codes": real_listings},
+            )
+        ]
+    return []

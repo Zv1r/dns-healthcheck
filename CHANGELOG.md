@@ -4,6 +4,38 @@ All notable changes to `dns-healthcheck` are recorded here. The version
 number is the source of truth in `pyproject.toml` and `dns_healthcheck/__init__.py`;
 keep them in sync (use `scripts/bump-version.py` to bump both).
 
+## 0.5.0 — 2026-04-19
+
+### Added — 11 enterprise-tool-parity checks (101 -> 112)
+
+Sourced from a survey of MXToolbox, DNSViz, intoDNS, Hardenize, and SSL Labs.
+
+**nameserver (3)**
+- `NAMESERVER20` — per-NS UDP query RTT (NOTICE >150ms, WARNING >500ms).
+- `NAMESERVER21` — TC bit set on truncated UDP responses + TCP retry returns
+  full answer (RFC 1035 §4.2.1, RFC 7766). Probes DNSKEY at EDNS bufsize=512.
+- `NAMESERVER22` — server advertises a sane EDNS UDP buffer size per
+  RFC 9715 (warns on very large advertisements; warns hard on missing EDNS).
+
+**email (4)**
+- `EMAIL09` — every MX target has a PTR matching its forward A/AAAA
+  (forward-confirmed reverse DNS).
+- `EMAIL10` — MX accepts SMTP-25 with a 220 banner (RFC 5321 §3.1). Connection
+  failures degrade to NOTICE since many networks block egress port 25.
+- `EMAIL11` — MX advertises STARTTLS in EHLO response (RFC 3207).
+- `EMAIL12` — domain not listed on Spamhaus DBL (DNS-queryable; no API key).
+
+**web (3)**
+- `WEB07` — HTTPS endpoint refuses TLS 1.0 / 1.1 per RFC 8996 (BCP 195).
+  Probes both protocols; success = ERROR.
+- `WEB08` — TLS certificate uses a modern signature algorithm (no SHA-1, MD5).
+- `WEB09` — HTTPS endpoint negotiates HTTP/2 via ALPN (RFC 7540 + RFC 7301).
+
+**propagation (1)**
+- `PROPAGATION04` — A-record TTL coherence across 5 public resolvers
+  (NOTICE if max-TTL ≥ 5× min-TTL with >60s spread — usually a recent change
+  still propagating, or inconsistent authoritative TTLs).
+
 ## 0.4.0 — 2026-04-19
 
 ### Fixed

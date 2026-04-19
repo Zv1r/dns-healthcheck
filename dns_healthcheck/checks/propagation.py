@@ -120,3 +120,49 @@ async def propagation03(ctx: CheckContext) -> list[Finding]:
                 )
             )
     return findings
+
+
+@register(
+    id="PROPAGATION04",
+    category=CATEGORY,
+    name="A-record TTLs are coherent across major public resolvers",
+    description=(
+        "When the same A RRset is served at wildly different TTLs across "
+        "resolvers, it usually means the resolvers' caches are out of sync — "
+        "either due to a recent change still propagating or to inconsistent "
+        "authoritative TTLs. Skew greater than 5x the smallest TTL is flagged."
+    ),
+    default_severity=Severity.NOTICE,
+)
+async def propagation04(ctx: CheckContext) -> list[Finding]:
+    items: list[tuple[str, str]] = []
+    for vendor, addrs in _resolvers(ctx).items():
+        if addrs:
+            items.append((vendor, addrs[0]))
+
+    async def one(vendor: str, addr: str) -> tuple[str, int | None]:
+        r = AsyncResolver(nameservers=[addr], timeout=5.0)
+        res = await r.query_stub(ctx.domain, "A")
+        if res.response is None:
+            return vendor, None
+        for rrset in res.response.answer:
+            if rrset.rdtype == dns.rdatatype.A:
+                return vendor, int(rrset.ttl)
+        return vendor, None
+
+    pairs = await asyncio.gather(*(one(v, a) for v, a in items))
+    ttls = {v: t for v, t in pairs if t is not None and t > 0}
+    if len(ttls) < 2:
+        return []
+    lo = min(ttls.values())
+    hi = max(ttls.values())
+    if hi >= 5 * lo and (hi - lo) > 60:
+        return [
+            Finding(
+                "PROPAGATION04",
+                Severity.NOTICE,
+                f"A-record TTL skew across resolvers: {ttls} (range {lo}..{hi}s)",
+                {"per_resolver": ttls},
+            )
+        ]
+    return []

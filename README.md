@@ -17,28 +17,40 @@ MIT-licensed. No daemon, no database, no UI — install in a virtual environment
 
 ## Install
 
-`dns-healthcheck` is published on PyPI. Install it into a virtual environment:
+`dns-healthcheck` is not on PyPI yet — install directly from this GitHub repository
+into a virtual environment:
 
 ```bash
 # 1. Create and activate a virtualenv
 python3 -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 
-# 2. Install the package
+# 2. Install from GitHub (latest main)
 pip install --upgrade pip
-pip install dns-healthcheck
+pip install "git+https://github.com/Zv1r/dns-healthcheck.git@main"
 
 # 3. Verify
 dnshc --version
 ```
 
-Prefer an isolated, never-activate workflow? Use `pipx`, which manages its own venv per tool:
+Or, if you want the source tree alongside the install (for hacking / running from a clone):
 
 ```bash
-pipx install dns-healthcheck
+git clone https://github.com/Zv1r/dns-healthcheck.git
+cd dns-healthcheck
+python3 -m venv .venv && source .venv/bin/activate
+pip install --upgrade pip
+pip install -e .
 ```
 
-Python 3.10+ required.
+Prefer an isolated, never-activate workflow? `pipx` manages its own venv per tool:
+
+```bash
+pipx install "git+https://github.com/Zv1r/dns-healthcheck.git@main"
+```
+
+Python 3.10+ required. A PyPI release will be tagged once the test matrix has run a
+few releases against the wild.
 
 ## Quick start
 
@@ -104,7 +116,7 @@ jobs:
   audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: Zv1r/dns-healthcheck@v1
+      - uses: Zv1r/dns-healthcheck@main
         with:
           domain: example.com
           profile: ci
@@ -112,8 +124,10 @@ jobs:
           fail-on: error
 ```
 
-The action installs `dns-healthcheck` from PyPI, runs the audit, and (by default) uploads
-the SARIF to **GitHub Code Scanning** so each finding shows up in the Security tab.
+The action installs `dns-healthcheck` straight from this repository at the ref you
+pinned (`@main`, a branch, a tag, or a commit SHA), runs the audit, and (by default)
+uploads the SARIF to **GitHub Code Scanning** so each finding shows up in the
+Security tab. Once a versioned release is cut, you'll be able to pin a `@v0.1.0` tag.
 
 ## Use as a library
 

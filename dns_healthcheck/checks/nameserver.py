@@ -314,7 +314,7 @@ async def nameserver10(ctx: CheckContext) -> list[Finding]:
     async def probe(ns_name: str, addr: str) -> Finding | None:
         try:
             req = _msg.make_query(ctx.domain, "SOA")
-            req.use_edns(0, options=[dns.edns.GenericOption(10, client_cookie)])
+            req.use_edns(0, options=[dns.edns.GenericOption(dns.edns.OptionType.COOKIE, client_cookie)])
             resp = await dns.asyncquery.udp(req, addr, timeout=4.0, ignore_unexpected=True)
         except Exception:
             return None

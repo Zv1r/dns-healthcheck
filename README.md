@@ -148,13 +148,39 @@ source .venv/bin/activate
 pip install --upgrade pip
 pip install -e '.[dev]'
 
-# Quality gates
-pytest
+# Quality gates (mirror what CI runs)
 ruff check . && ruff format --check .
+mypy dns_healthcheck
+pytest
 
 # Smoke run from the source tree
 dnshc check example.com
 ```
+
+### Releasing a new version
+
+Use the included helper to keep `pyproject.toml` and
+`dns_healthcheck/__init__.py` in sync, update `CHANGELOG.md`, then
+commit + tag:
+
+```bash
+python scripts/bump-version.py patch    # 0.4.0 -> 0.4.1
+# or:  python scripts/bump-version.py 0.5.0
+$EDITOR CHANGELOG.md                    # describe the change
+git add pyproject.toml dns_healthcheck/__init__.py CHANGELOG.md
+git commit -m "release: v$(python scripts/bump-version.py --print)"
+git tag "v$(python scripts/bump-version.py --print)"
+git push --follow-tags
+```
+
+### About the CI workflow
+
+`.github/workflows/ci.yml` runs **ruff + mypy + pytest on Python 3.10–3.13**
+on every push to `main` and every PR. It is scoped to source-relevant
+paths (`dns_healthcheck/`, `tests/`, `pyproject.toml`, the workflow
+itself) so README / docs-only commits don't spend runner minutes. You
+can disable the workflow entirely at *Settings → Actions → Disable
+Actions* if you don't want CI.
 
 ## License
 

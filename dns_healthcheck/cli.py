@@ -12,7 +12,7 @@ from rich.table import Table
 from dns_healthcheck import __version__, runner
 from dns_healthcheck.profiles import PROFILES, get_profile
 from dns_healthcheck.registry import REGISTRY
-from dns_healthcheck.reporters import REPORTERS
+from dns_healthcheck.reporters import REPORTERS, render_text
 from dns_healthcheck.result import Severity
 
 app = typer.Typer(
@@ -87,8 +87,10 @@ def check(
         )
     )
 
-    reporter = REPORTERS[output]
-    rendered = reporter(report, no_color=no_color) if output == "text" else reporter(report)
+    if output == "text":
+        rendered: str = render_text(report, no_color=no_color)
+    else:
+        rendered = REPORTERS[output](report)
     typer.echo(rendered)
 
     worst = max((f.severity for r in report.results for f in r.findings), default=Severity.INFO)

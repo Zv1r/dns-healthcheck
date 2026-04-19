@@ -53,7 +53,7 @@ async def run(
         categories=profile.categories or None,
     )
 
-    report = RunReport.begin(domain, profile.name, resolvers or res._stub.nameservers)
+    report = RunReport.begin(domain, profile.name, [str(s) for s in (resolvers or res._stub.nameservers)])
     sem = asyncio.Semaphore(concurrency)
 
     async def bounded(spec: CheckSpec) -> CheckResult:

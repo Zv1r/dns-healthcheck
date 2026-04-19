@@ -27,8 +27,8 @@ def test_registry_has_extended_categories() -> None:
 
 
 def test_registry_minimum_check_count() -> None:
-    # 9 core DNS categories (74) + 3 extended categories (17) = 91
-    assert len(REGISTRY.all()) >= 91
+    # 9 core DNS categories (84) + 3 extended categories (17) = 101
+    assert len(REGISTRY.all()) >= 101
 
 
 def test_check_ids_are_unique_and_uppercase() -> None:

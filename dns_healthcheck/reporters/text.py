@@ -19,7 +19,15 @@ SEVERITY_STYLE = {
 
 
 def render_text(report: RunReport, *, no_color: bool = False, quiet: bool = False) -> str:
-    console = Console(record=True, no_color=no_color, force_terminal=not no_color, width=120)
+    # Render via capture() so the reporter only RETURNS text — the CLI is
+    # responsible for printing it. Otherwise everything would be printed twice.
+    console = Console(no_color=no_color, force_terminal=not no_color, width=120)
+    with console.capture() as cap:
+        _render(console, report)
+    return cap.get()
+
+
+def _render(console: Console, report: RunReport) -> None:
     header = Text()
     header.append("dns-healthcheck", style="bold")
     header.append(f" — {report.domain}", style="cyan")
@@ -74,4 +82,3 @@ def render_text(report: RunReport, *, no_color: bool = False, quiet: bool = Fals
         f"runtime={report.duration_ms}ms"
     )
     console.print(Panel(summary, expand=False))
-    return console.export_text(clear=False)

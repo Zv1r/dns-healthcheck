@@ -610,3 +610,37 @@ async def dnssec18(ctx: CheckContext) -> list[Finding]:
                 )
             ]
     return []
+
+
+@register(
+    id="DNSSEC19",
+    category=CATEGORY,
+    name="NSEC3 salt is empty (RFC 9276 §3.1)",
+    description=(
+        "RFC 9276 §3.1: NSEC3 records SHOULD use an empty salt field. Salts add "
+        "no real security and increase signing cost; modern resolvers expect '-'."
+    ),
+    default_severity=Severity.NOTICE,
+    requires_dnssec=True,
+)
+async def dnssec19(ctx: CheckContext) -> list[Finding]:
+    fake = f"nsec3-salt-probe-{abs(hash(ctx.domain)) % 10**6}.{ctx.domain}"
+    for addr in ctx.authoritative_servers()[:1]:
+        r = await ctx.resolver.query_at(fake, "A", addr, want_dnssec=True)
+        if r.response is None:
+            continue
+        for rrset in r.response.authority:
+            if rrset.rdtype == dns.rdatatype.NSEC3:
+                for rd in rrset:
+                    if rd.salt:
+                        return [
+                            Finding(
+                                "DNSSEC19",
+                                Severity.NOTICE,
+                                f"NSEC3 uses non-empty salt ({rd.salt.hex()}); RFC 9276 recommends empty",
+                                {"salt_hex": rd.salt.hex()},
+                            )
+                        ]
+                return []
+        return []
+    return []

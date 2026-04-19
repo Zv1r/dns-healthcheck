@@ -284,3 +284,38 @@ async def zone11(ctx: CheckContext) -> list[Finding]:
             )
         ]
     return []
+
+
+@register(
+    id="ZONE12",
+    category=CATEGORY,
+    name="SOA TTL is consistent with SOA MINIMUM (RFC 2308 §4)",
+    description=(
+        "RFC 2308 §4: a SOA record's own TTL SHOULD be less than or equal to its "
+        "MINIMUM field, since MINIMUM is the negative-cache TTL ceiling. A SOA TTL "
+        "much larger than MINIMUM produces inconsistent caching behaviour."
+    ),
+    default_severity=Severity.NOTICE,
+)
+async def zone12(ctx: CheckContext) -> list[Finding]:
+    if not ctx.zone.soa:
+        return []
+    import dns.rdatatype as _t
+
+    minimum = ctx.zone.soa["minimum"]
+    for addr in ctx.authoritative_servers()[:2]:
+        r = await ctx.resolver.query_at(ctx.domain, "SOA", addr)
+        if r.error or r.response is None:
+            continue
+        for rrset in r.response.answer:
+            if rrset.rdtype == _t.SOA and rrset.ttl > minimum:
+                return [
+                    Finding(
+                        "ZONE12",
+                        Severity.NOTICE,
+                        f"SOA TTL {rrset.ttl}s exceeds SOA MINIMUM {minimum}s (RFC 2308 §4)",
+                        {"soa_ttl": rrset.ttl, "minimum": minimum},
+                    )
+                ]
+        return []
+    return []

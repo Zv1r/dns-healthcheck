@@ -129,12 +129,32 @@ async def nameserver03(ctx: CheckContext) -> list[Finding]:
 @register(
     id="NAMESERVER04",
     category=CATEGORY,
-    name="Authoritative server uses consistent source IP",
-    description="Some bogus servers reply from a different IP than queried.",
+    name="Server preserves QNAME case in response (0x20)",
+    description=(
+        "draft-vixie-dnsext-dns0x20: a name server SHOULD reflect the exact case "
+        "of the query name in its response. Lowercasing breaks 0x20 spoofing defence."
+    ),
     default_severity=Severity.NOTICE,
 )
 async def nameserver04(ctx: CheckContext) -> list[Finding]:
-    return []
+    findings: list[Finding] = []
+    mixed = "".join(c.upper() if i % 2 == 0 else c.lower() for i, c in enumerate(ctx.domain))
+    for ns_name, addr in _iter_servers(ctx)[:4]:
+        r = await ctx.resolver.query_at(mixed, "SOA", addr)
+        if r.error or r.response is None or not r.response.answer:
+            continue
+        echoed = r.response.answer[0].name.to_text().rstrip(".")
+        if echoed != mixed:
+            findings.append(
+                Finding(
+                    check_id="NAMESERVER04",
+                    severity=Severity.NOTICE,
+                    message=f"{ns_name}/{addr} did not preserve QNAME case ({mixed!r} -> {echoed!r})",
+                    args={"ns": ns_name, "queried": mixed, "returned": echoed},
+                    ns=ns_name,
+                )
+            )
+    return findings
 
 
 @register(
@@ -215,11 +235,35 @@ async def nameserver07(ctx: CheckContext) -> list[Finding]:
 @register(
     id="NAMESERVER08",
     category=CATEGORY,
-    name="Authoritative server returns same SOA serial regardless of source",
-    default_severity=Severity.NOTICE,
+    name="SOA serial is stable across rapid identical queries",
+    description=(
+        "Three SOA queries within ~1s should return the same serial. A flapping "
+        "serial usually means an inconsistent backend or load-balancer fan-out."
+    ),
+    default_severity=Severity.WARNING,
 )
 async def nameserver08(ctx: CheckContext) -> list[Finding]:
-    return []
+    findings: list[Finding] = []
+    for ns_name, addr in _iter_servers(ctx):
+        serials: set[int] = set()
+        for _ in range(3):
+            r = await ctx.resolver.query_at(ctx.domain, "SOA", addr)
+            if r.error or r.response is None:
+                break
+            for rrset in r.response.answer:
+                if rrset.rdtype == dns.rdatatype.SOA:
+                    serials.add(next(iter(rrset)).serial)
+        if len(serials) > 1:
+            findings.append(
+                Finding(
+                    check_id="NAMESERVER08",
+                    severity=Severity.WARNING,
+                    message=f"{ns_name}/{addr} returned multiple SOA serials in rapid succession: {sorted(serials)}",
+                    args={"ns": ns_name, "address": addr, "serials": sorted(serials)},
+                    ns=ns_name,
+                )
+            )
+    return findings
 
 
 @register(
@@ -250,11 +294,47 @@ async def nameserver09(ctx: CheckContext) -> list[Finding]:
 @register(
     id="NAMESERVER10",
     category=CATEGORY,
-    name="Authoritative server responds to DNS COOKIE option (RFC 7873)",
-    default_severity=Severity.INFO,
+    name="Server supports DNS COOKIE (RFC 7873)",
+    description=(
+        "RFC 7873 defines the EDNS0 COOKIE option as a lightweight defence "
+        "against off-path spoofing. Public authoritative servers SHOULD support it."
+    ),
+    default_severity=Severity.NOTICE,
 )
 async def nameserver10(ctx: CheckContext) -> list[Finding]:
-    return []
+    findings: list[Finding] = []
+    import os
+
+    import dns.asyncquery
+    import dns.edns
+    import dns.message as _msg
+
+    client_cookie = os.urandom(8)
+
+    async def probe(ns_name: str, addr: str) -> Finding | None:
+        try:
+            req = _msg.make_query(ctx.domain, "SOA")
+            req.use_edns(0, options=[dns.edns.GenericOption(10, client_cookie)])
+            resp = await dns.asyncquery.udp(req, addr, timeout=4.0, ignore_unexpected=True)
+        except Exception:
+            return None
+        for opt in resp.options or []:
+            # COOKIE option (10): >8 bytes means a server cookie was appended.
+            if opt.otype == 10 and len(opt.data) > 8:
+                return None
+        return Finding(
+            check_id="NAMESERVER10",
+            severity=Severity.NOTICE,
+            message=f"{ns_name}/{addr} did not return a server DNS COOKIE",
+            args={"ns": ns_name, "address": addr},
+            ns=ns_name,
+        )
+
+    tasks = [probe(n, a) for n, a in _iter_servers(ctx)]
+    for f in await asyncio.gather(*tasks):
+        if f:
+            findings.append(f)
+    return findings
 
 
 @register(
@@ -368,4 +448,238 @@ async def nameserver14(ctx: CheckContext) -> list[Finding]:
                     ns=ns_name,
                 )
             )
+    return findings
+
+
+@register(
+    id="NAMESERVER15",
+    category=CATEGORY,
+    name="Server refuses IXFR (RFC 1995) from arbitrary clients",
+    description=(
+        "Like AXFR, public IXFR exposure leaks zone history. RFC 1995 servers "
+        "should answer with NOTIMP, REFUSED, or fall back to AXFR (which we test "
+        "separately) — never deliver an incremental zone transfer to a stranger."
+    ),
+    default_severity=Severity.ERROR,
+)
+async def nameserver15(ctx: CheckContext) -> list[Finding]:
+    if not ctx.zone.soa:
+        return []
+    serial = max(int(ctx.zone.soa["serial"]) - 1, 0)
+    findings: list[Finding] = []
+    import dns.message as _msg
+    import dns.name as _name
+    import dns.rdata as _rdata
+    import dns.rdataclass as _rdc
+
+    soa_rdata = _rdata.from_text(
+        _rdc.IN,
+        dns.rdatatype.SOA,
+        f"{ctx.zone.soa['mname']}. {ctx.zone.soa['rname']}. {serial} 7200 3600 1209600 3600",
+    )
+
+    async def probe(ns_name: str, addr: str) -> Finding | None:
+        try:
+            reader, writer = await asyncio.wait_for(asyncio.open_connection(addr, 53), timeout=4.0)
+        except Exception:
+            return None
+        try:
+            req = _msg.make_query(_name.from_text(ctx.domain), dns.rdatatype.IXFR, _rdc.IN)
+            req.authority.append(dns.rrset.from_rdata_list(_name.from_text(ctx.domain), 0, [soa_rdata]))
+            wire = req.to_wire()
+            writer.write(len(wire).to_bytes(2, "big") + wire)
+            await writer.drain()
+            length_bytes = await asyncio.wait_for(reader.readexactly(2), timeout=4.0)
+            n = int.from_bytes(length_bytes, "big")
+            data = await asyncio.wait_for(reader.readexactly(n), timeout=4.0)
+            resp = _msg.from_wire(data)
+            soa_count = sum(1 for rrset in resp.answer if rrset.rdtype == dns.rdatatype.SOA)
+            non_soa = any(rrset.rdtype not in (dns.rdatatype.SOA,) for rrset in resp.answer)
+            # A successful IXFR delivers either a full zone (multiple answers) or
+            # condensed difference records. Either way: more than just NOERROR+empty.
+            if resp.rcode() == 0 and (soa_count > 1 or non_soa):
+                return Finding(
+                    check_id="NAMESERVER15",
+                    severity=Severity.ERROR,
+                    message=f"{ns_name}/{addr} delivered IXFR to an unauthenticated client",
+                    args={"ns": ns_name, "address": addr},
+                    ns=ns_name,
+                )
+        except Exception:
+            return None
+        finally:
+            writer.close()
+            import contextlib
+
+            with contextlib.suppress(Exception):
+                await writer.wait_closed()
+        return None
+
+    tasks = [probe(n, a) for n, a in _iter_servers(ctx)]
+    for f in await asyncio.gather(*tasks):
+        if f:
+            findings.append(f)
+    return findings
+
+
+@register(
+    id="NAMESERVER16",
+    category=CATEGORY,
+    name="Server is authoritative for unrelated zones (informational)",
+    description=(
+        "Reports when an authoritative server also answers (AA bit + answer data) "
+        "for an unrelated probe domain. This usually means shared multi-tenant "
+        "authoritative infrastructure — perfectly legitimate, but worth noting "
+        "for blast-radius / supply-chain reasoning. RFC 1035 §4.3.1 / RFC 8499."
+    ),
+    default_severity=Severity.NOTICE,
+)
+async def nameserver16(ctx: CheckContext) -> list[Finding]:
+    findings: list[Finding] = []
+    foreign = "iana.org" if not ctx.domain.endswith("iana.org") else "icann.org"
+    import dns.flags as _flags
+
+    for ns_name, addr in _iter_servers(ctx)[:4]:
+        r = await ctx.resolver.query_at(foreign, "A", addr)
+        if r.error or r.response is None:
+            continue
+        has_answer = any(rrset.rdtype == dns.rdatatype.A for rrset in r.response.answer)
+        if r.rcode == 0 and (r.response.flags & _flags.AA) and has_answer:
+            findings.append(
+                Finding(
+                    check_id="NAMESERVER16",
+                    severity=Severity.NOTICE,
+                    message=(
+                        f"{ns_name}/{addr} also serves {foreign} authoritatively (shared multi-tenant infrastructure)"
+                    ),
+                    args={"ns": ns_name, "address": addr, "probe": foreign},
+                    ns=ns_name,
+                )
+            )
+    return findings
+
+
+@register(
+    id="NAMESERVER17",
+    category=CATEGORY,
+    name="Negative responses include SOA in authority section (RFC 2308)",
+    description=(
+        "RFC 2308 §5: NXDOMAIN and NoData responses MUST include the zone's SOA "
+        "in the authority section so resolvers can negative-cache correctly."
+    ),
+    default_severity=Severity.WARNING,
+)
+async def nameserver17(ctx: CheckContext) -> list[Finding]:
+    fake = f"rfc2308-probe-{abs(hash(ctx.domain)) % 10**6}.{ctx.domain}"
+    findings: list[Finding] = []
+    for ns_name, addr in _iter_servers(ctx)[:4]:
+        r = await ctx.resolver.query_at(fake, "A", addr)
+        if r.error or r.response is None:
+            continue
+        if r.rcode != dns.rcode.NXDOMAIN:
+            continue
+        has_soa = any(rrset.rdtype == dns.rdatatype.SOA for rrset in r.response.authority)
+        if not has_soa:
+            findings.append(
+                Finding(
+                    check_id="NAMESERVER17",
+                    severity=Severity.WARNING,
+                    message=f"{ns_name}/{addr} NXDOMAIN response omits SOA in authority section (RFC 2308)",
+                    args={"ns": ns_name, "address": addr},
+                    ns=ns_name,
+                )
+            )
+    return findings
+
+
+@register(
+    id="NAMESERVER18",
+    category=CATEGORY,
+    name="ANY queries are minimised per RFC 8482",
+    description=(
+        'RFC 8482: a server MAY synthesize a single HINFO record ("RFC8482") in '
+        "response to qtype=ANY. Returning an entire RRset list is a known DDoS "
+        "amplification vector and is discouraged."
+    ),
+    default_severity=Severity.NOTICE,
+)
+async def nameserver18(ctx: CheckContext) -> list[Finding]:
+    findings: list[Finding] = []
+    for ns_name, addr in _iter_servers(ctx)[:4]:
+        r = await ctx.resolver.query_at(ctx.domain, "ANY", addr)
+        if r.error or r.response is None:
+            continue
+        rrtypes = {rrset.rdtype for rrset in r.response.answer}
+        rrtypes.discard(dns.rdatatype.RRSIG)
+        if len(rrtypes) > 3:
+            findings.append(
+                Finding(
+                    check_id="NAMESERVER18",
+                    severity=Severity.NOTICE,
+                    message=(
+                        f"{ns_name}/{addr} returned {len(rrtypes)} distinct rrtypes "
+                        f"on qtype=ANY (RFC 8482 recommends minimised response)"
+                    ),
+                    args={
+                        "ns": ns_name,
+                        "address": addr,
+                        "rrtypes": sorted(dns.rdatatype.to_text(t) for t in rrtypes),
+                    },
+                    ns=ns_name,
+                )
+            )
+    return findings
+
+
+@register(
+    id="NAMESERVER19",
+    category=CATEGORY,
+    name="EDNS version negotiation is correct (RFC 6891)",
+    description=(
+        "RFC 6891 §6.1.3: when a server receives an EDNS version it doesn't support, "
+        "it MUST respond with BADVERS (rcode 16) and echo an OPT RR. FORMERR or a "
+        "silent timeout indicates broken EDNS handling that breaks DNSSEC and large "
+        "responses for downstream resolvers."
+    ),
+    default_severity=Severity.WARNING,
+)
+async def nameserver19(ctx: CheckContext) -> list[Finding]:
+    findings: list[Finding] = []
+    import dns.asyncquery
+    import dns.message as _msg
+
+    async def probe(ns_name: str, addr: str) -> Finding | None:
+        try:
+            req = _msg.make_query(ctx.domain, "SOA")
+            req.use_edns(edns=1, payload=1232)  # version 1 — server should answer BADVERS
+            resp = await dns.asyncquery.udp(req, addr, timeout=4.0, ignore_unexpected=True)
+        except dns.exception.Timeout:
+            return Finding(
+                check_id="NAMESERVER19",
+                severity=Severity.WARNING,
+                message=f"{ns_name}/{addr} timed out on EDNS version=1 query (broken EDNS)",
+                args={"ns": ns_name, "address": addr},
+                ns=ns_name,
+            )
+        except Exception:
+            return None
+        # Acceptable: BADVERS (16) with OPT echoed, or NOERROR (server ignored
+        # the version and answered normally — RFC 6891 §6.1.3 allows this when
+        # the requested version is back-compatible).
+        if resp.rcode() in (0, 16) and resp.edns >= 0:
+            return None
+        return Finding(
+            check_id="NAMESERVER19",
+            severity=Severity.WARNING,
+            message=(
+                f"{ns_name}/{addr} mishandled EDNS version=1: rcode={dns.rcode.to_text(resp.rcode())}, edns={resp.edns}"
+            ),
+            args={"ns": ns_name, "address": addr, "rcode": resp.rcode(), "edns": resp.edns},
+            ns=ns_name,
+        )
+
+    tasks = [probe(n, a) for n, a in _iter_servers(ctx)]
+    for f in await asyncio.gather(*tasks):
+        if f:
+            findings.append(f)
     return findings

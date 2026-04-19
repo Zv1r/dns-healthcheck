@@ -2,7 +2,7 @@
 
 A comprehensive DNS auditor for the modern internet, packaged as a single Python CLI.
 
-`dns-healthcheck` runs **91 checks** against any domain you point it at, covering the full
+`dns-healthcheck` runs **101 checks** against any domain you point it at, covering the full
 RFC-defined DNS surface (delegation, name servers, DNSSEC, SOA, syntax, connectivity,
 consistency) **plus** four areas most auditors skip:
 
@@ -119,15 +119,15 @@ print(render_json(report))
 | `basic` | 3 | Parent delegates; ≥1 working NS; apex resolves |
 | `connectivity` | 4 | UDP, TCP, AS diversity, prefix diversity |
 | `consistency` | 6 | SOA serial / RNAME / timers / NS / glue / MNAME |
-| `delegation` | 7 | Min NS, distinct IPs, AA bit, CNAME-at-apex, glue |
-| `dnssec` | 18 | DS, DNSKEY, RRSIG, NSEC/NSEC3, key strength, CDS |
-| `nameserver` | 14 | Recursion, EDNS0, AXFR refusal, version disclosure, case |
+| `delegation` | 10 | Min NS, distinct IPs, AA bit, CNAME-at-apex, glue, NS-not-CNAME (RFC 2181), NS resolves, IPv4+IPv6 (BCP 91) |
+| `dnssec` | 19 | DS, DNSKEY, RRSIG, NSEC/NSEC3 (RFC 9276 incl. salt), key strength, CDS, signature validation |
+| `nameserver` | 19 | Recursion, EDNS0/version, AXFR + IXFR refusal (RFC 1995), DNS COOKIE (RFC 7873), 0x20 case preservation, RFC 2308 negative-cache SOA, RFC 8482 ANY minimisation, NXDOMAIN, version disclosure, serial stability |
 | `syntax` | 8 | Charset, hyphen rules, IDN, SOA RNAME/MNAME, hostname validity |
-| `zone` | 11 | SOA timers, MX hygiene, SPF presence, wildcard MX |
+| `zone` | 12 | SOA timers, RFC 2308 SOA-TTL-vs-MINIMUM, MX hygiene, SPF presence, wildcard MX |
 | `email` | 8 | SPF, DKIM, DMARC, MTA-STS, TLS-RPT, BIMI, DANE |
 | `web` | 6 | CAA, HTTPS redirect, HSTS, preload, TLS cert |
 | `propagation` | 3 | A/AAAA/MX/NS consistency across 5 public resolvers |
-| **Total** | **91** | |
+| **Total** | **101** | |
 
 `dnshc list-checks` for the full catalog. `dnshc explain <CHECK_ID>` for one check's spec.
 

@@ -192,3 +192,107 @@ async def delegation07(ctx: CheckContext) -> list[Finding]:
                 )
             )
     return findings
+
+
+@register(
+    id="DELEGATION08",
+    category=CATEGORY,
+    name="No NS target is a CNAME",
+    description=(
+        "RFC 2181 §10.3: an NS RDATA value MUST point to a hostname that owns "
+        "an A/AAAA record, never a CNAME. Resolvers reject CNAME-targeted NS."
+    ),
+    default_severity=Severity.ERROR,
+)
+async def delegation08(ctx: CheckContext) -> list[Finding]:
+    findings: list[Finding] = []
+    for ns in ctx.zone.parent_ns + ctx.zone.child_ns:
+        r = await ctx.resolver.query_stub(ns.name, "CNAME")
+        if r.answer:
+            findings.append(
+                Finding(
+                    check_id="DELEGATION08",
+                    severity=Severity.ERROR,
+                    message=f"NS {ns.name} resolves through a CNAME (RFC 2181 §10.3 forbids)",
+                    args={"ns": ns.name},
+                    ns=ns.name,
+                )
+            )
+    return findings
+
+
+@register(
+    id="DELEGATION09",
+    category=CATEGORY,
+    name="Every NS hostname resolves to at least one address",
+    description=(
+        "An NS hostname that returns NXDOMAIN or no A/AAAA records is a "
+        "lame delegation at the name level: the parent advertises it but no "
+        "resolver can ever reach it."
+    ),
+    default_severity=Severity.ERROR,
+)
+async def delegation09(ctx: CheckContext) -> list[Finding]:
+    findings: list[Finding] = []
+    for ns in ctx.zone.parent_ns + ctx.zone.child_ns:
+        if ns.all_addresses():
+            continue
+        addrs = await ctx.resolver.resolve_addresses(ns.name)
+        if not addrs:
+            findings.append(
+                Finding(
+                    check_id="DELEGATION09",
+                    severity=Severity.ERROR,
+                    message=f"NS hostname {ns.name} resolves to no A/AAAA address",
+                    args={"ns": ns.name},
+                    ns=ns.name,
+                )
+            )
+    return findings
+
+
+@register(
+    id="DELEGATION10",
+    category=CATEGORY,
+    name="NS set has both IPv4 and IPv6 coverage (BCP 91)",
+    description=(
+        "RFC 3901 / BCP 91: a zone SHOULD be reachable over both address families. "
+        "An IPv4-only or IPv6-only NS set degrades reachability for half the internet."
+    ),
+    default_severity=Severity.NOTICE,
+)
+async def delegation10(ctx: CheckContext) -> list[Finding]:
+    import ipaddress
+
+    has_v4 = False
+    has_v6 = False
+    for ns in ctx.zone.parent_ns + ctx.zone.child_ns:
+        for addr in ns.all_addresses():
+            try:
+                ip = ipaddress.ip_address(addr)
+            except ValueError:
+                continue
+            if isinstance(ip, ipaddress.IPv4Address):
+                has_v4 = True
+            else:
+                has_v6 = True
+    findings: list[Finding] = []
+    if not has_v4:
+        findings.append(
+            Finding(
+                check_id="DELEGATION10",
+                severity=Severity.NOTICE,
+                message="No IPv4 address among NS set (zone unreachable from v4-only resolvers)",
+                args={},
+            )
+        )
+    if not has_v6:
+        findings.append(
+            Finding(
+                check_id="DELEGATION10",
+                severity=Severity.NOTICE,
+                message="No IPv6 address among NS set (zone unreachable from v6-only resolvers)",
+                args={},
+            )
+        )
+    return findings

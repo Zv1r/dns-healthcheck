@@ -42,8 +42,12 @@ class Zone:
 
     name: str
     parent: str
-    parent_ns: list[NameServer] = field(default_factory=list)  # NS at parent (delegation)
+    parent_ns: list[NameServer] = field(default_factory=list)  # delegation NS for the zone
     child_ns: list[NameServer] = field(default_factory=list)  # NS at zone apex
+    # IPs of the *parent zone's* own authoritative servers (e.g. the .ua TLD servers
+    # for rv.ua). DS records live in the parent zone and MUST be queried here, not
+    # at parent_ns (which holds the child zone's authoritative servers).
+    parent_zone_ns_addresses: list[str] = field(default_factory=list)
     soa: dict[str, Any] | None = None
     ds_records: list[str] = field(default_factory=list)
     dnskey_records: list[str] = field(default_factory=list)
@@ -127,6 +131,10 @@ class CheckContext:
             if not ns_set:
                 break
             if qname.rstrip(".") == self.domain:
+                # `servers` here holds the IPs of the parent zone's nameservers — the
+                # ones that just gave us the referral. Capture them so DNSSEC discovery
+                # can ask them for DS records (which only the parent zone serves).
+                self.zone.parent_zone_ns_addresses = list(servers)
                 ns_objs: list[NameServer] = []
                 for n in sorted(ns_set):
                     addrs = glue.get(n, [])
@@ -199,24 +207,12 @@ class CheckContext:
                     return
 
     async def _discover_dnssec(self) -> None:
-        if not self.zone.parent_ns:
-            return
-        for ns in self.zone.parent_ns:
-            for addr in ns.all_addresses():
-                r = await self.resolver.query_at(self.domain, "DS", addr, want_dnssec=True)
-                if r.error or r.response is None:
-                    continue
-                for rrset in r.response.answer:
-                    if rrset.rdtype == dns.rdatatype.DS:
-                        for rd in rrset:
-                            self.zone.ds_records.append(rd.to_text())
-                if self.zone.ds_records:
-                    self.zone.has_dnssec = True
-                    break
-            if self.zone.ds_records:
-                break
+        # DS lives only in the parent zone — query the parent zone's nameservers
+        # (captured during the iterative walk), not the child zone's.
+        await self._collect_ds_records()
 
         if self.zone.has_dnssec:
+            # DNSKEY lives at the child apex — query authoritative child servers.
             for srv in self.authoritative_servers():
                 r = await self.resolver.query_at(self.domain, "DNSKEY", srv, want_dnssec=True)
                 if r.error or r.response is None:
@@ -227,6 +223,31 @@ class CheckContext:
                             self.zone.dnskey_records.append(rd.to_text())
                 if self.zone.dnskey_records:
                     break
+
+    async def _collect_ds_records(self) -> None:
+        """Populate zone.ds_records / zone.has_dnssec by asking the parent zone."""
+        for addr in self.zone.parent_zone_ns_addresses:
+            r = await self.resolver.query_at(self.domain, "DS", addr, want_dnssec=True)
+            if r.error or r.response is None:
+                continue
+            for rrset in r.response.answer:
+                if rrset.rdtype == dns.rdatatype.DS:
+                    for rd in rrset:
+                        self.zone.ds_records.append(rd.to_text())
+            if self.zone.ds_records:
+                self.zone.has_dnssec = True
+                return
+
+        # Fallback: parent NS were unreachable (or zone is a TLD with parent==root).
+        # Ask the configured stub resolver, which walks the chain itself.
+        r = await self.resolver.query_stub(self.domain, "DS", want_dnssec=True)
+        if r.response is not None:
+            for rrset in r.response.answer:
+                if rrset.rdtype == dns.rdatatype.DS:
+                    for rd in rrset:
+                        self.zone.ds_records.append(rd.to_text())
+            if self.zone.ds_records:
+                self.zone.has_dnssec = True
 
     def authoritative_servers(self) -> list[str]:
         """All authoritative server IPs we know about (parent glue + child resolution)."""
